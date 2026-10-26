@@ -1,10 +1,4 @@
 -- =====================================================================
--- Renovation / Interior Designer matching platform
--- MySQL 8.0.16 or later (CHECK constraints are only enforced from 8.0.16)
--- Suggested location: backend/src/main/resources/db/migration/V1__init_schema.sql
--- Source: class diagram v3 (after review) + PRD v1.1
--- All ids and foreign keys are INT (Java Integer), matching the class diagram.
---
 -- Notes
 --  * Timestamps are stored as UTC. Set the JDBC URL option serverTimezone=UTC and
 --    spring.jpa.properties.hibernate.jdbc.time_zone=UTC. Dates that define "a day"
@@ -13,7 +7,6 @@
 --  * Enumerations are VARCHAR + CHECK (not MySQL ENUM) so Hibernate's
 --    ddl-auto=validate accepts them when mapped with @Enumerated(EnumType.STRING).
 --  * PlatformReport is NOT a table: reports are computed on demand.
---  * No ON DELETE / ON UPDATE actions are used (soft delete is used instead).
 -- =====================================================================
 
 -- ---------- 1. USERS ------------------------------------------------
