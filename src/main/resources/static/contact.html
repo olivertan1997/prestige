@@ -48,7 +48,42 @@
   </nav>
 </header>
 <main>
+<section class="section" id="userSearchSection">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Search Directory</p>
+      <h2>Find a <em>User or Designer</em></h2>
+    </div>
+  </div>
 
+  <form class="mgmt-form" id="userSearchForm" style="max-width: 100%; margin-bottom: 24px;" novalidate>
+    <div class="form-row">
+      <div class="field">
+        <label for="searchName">Name *</label>
+        <input id="searchName" type="text" placeholder="e.g. Ann" required>
+      </div>
+      <div class="field">
+        <label for="searchRole">Role (Optional)</label>
+        <select id="searchRole">
+          <option value="">All Roles</option>
+          <option value="CUSTOMER">Customer</option>
+          <option value="INTERIOR_DESIGNER">Interior Designer</option>
+          <option value="USER_ADMIN">User Admin</option>
+          <option value="PLATFORM_MANAGEMENT">Platform Management</option>
+        </select>
+      </div>
+    </div>
+    <div class="mgmt-actions">
+      <button class="btn btn-dark" type="submit" id="searchUserBtn">Search</button>
+    </div>
+  </form>
+
+  <p class="status-msg" id="userSearchMessage" role="status" hidden></p>
+
+  <div class="mgmt-view" id="userSearchResultsView" hidden>
+    <div id="searchResultsList"></div>
+  </div>
+</section>
 <section class="page-hero hero-contact"><div class="hero-content"><p class="eyebrow">Get in touch</p><h1>Let's talk about<br><em>your space.</em></h1><p>Tell us what you're imagining. We'll help you work out a thoughtful next step.</p></div></section>
 
 <section class="section" id="companyContactSection">
@@ -201,7 +236,92 @@ companyContactForm.addEventListener('submit', async e => {
     saveContactBtn.disabled = false;
   }
 });
+const userSearchForm = document.getElementById('userSearchForm');
+const searchNameInput = document.getElementById('searchName');
+const searchRoleInput = document.getElementById('searchRole');
+const userSearchMessage = document.getElementById('userSearchMessage');
+const userSearchResultsView = document.getElementById('userSearchResultsView');
+const searchResultsList = document.getElementById('searchResultsList');
 
+function showSearchMessage(text, isError) {
+  userSearchMessage.hidden = !text;
+  userSearchMessage.textContent = text || '';
+  userSearchMessage.className = 'status-msg' + (isError ? ' error' : '');
+}
+
+userSearchForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nameVal = searchNameInput.value.trim();
+  const roleVal = searchRoleInput.value.trim();
+
+  if (!nameVal) {
+    showSearchMessage('Please enter a name to search.', true);
+    userSearchResultsView.hidden = true;
+    return;
+  }
+
+  showSearchMessage('Searching...', false);
+  userSearchResultsView.hidden = true;
+
+  try {
+    // Construct query parameters matching UserSearchController @GetMapping("/search")
+    let url = `${API_BASE}/api/users/search?name=${encodeURIComponent(nameVal)}`;
+    if (roleVal) {
+      url += `&role=${encodeURIComponent(roleVal)}`;
+    }
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.message || `HTTP ${response.status}`);
+    }
+
+    const users = await response.json(); // Returns List<UserResult> (userId, name, role, status)
+    
+    if (!users || users.length === 0) {
+      showSearchMessage('No users found matching your query.', false);
+      return;
+    }
+
+    showSearchMessage('', false);
+    renderSearchResults(users);
+  } catch (err) {
+    console.error('User search failed:', err);
+    showSearchMessage(err.message || 'Failed to fetch search results.', true);
+  }
+});
+
+function renderSearchResults(users) {
+  searchResultsList.replaceChildren();
+
+  const dl = el('dl');
+  users.forEach(user => {
+    const itemContainer = el('div');
+    
+    // Header line: Name
+    const dt = el('dt', '', user.name);
+    
+    // Details line: Email, Phone, Role, Status, and ID
+    const roleText = user.role ? user.role.replace('_', ' ') : 'N/A';
+    const emailText = user.email ? user.email : '—';
+    const phoneText = user.phone ? user.phone : '—';
+
+    const dd = el('dd');
+    dd.innerHTML = `
+      <strong>Email:</strong> ${emailText} | 
+      <strong>Phone:</strong> ${phoneText} | 
+      <strong>Role:</strong> ${roleText} | 
+      <strong>Status:</strong> ${user.status}
+    `;
+
+    itemContainer.appendChild(dt);
+    itemContainer.appendChild(dd);
+    dl.appendChild(itemContainer);
+  });
+
+  searchResultsList.appendChild(dl);
+  userSearchResultsView.hidden = false;
+}
 async function loadCompany() {
   try {
     const response = await fetch(API_BASE + '/api/company');

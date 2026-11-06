@@ -104,6 +104,39 @@ let nextPage = 0;         // next page number to request
 let totalPages = 0;
 let requestCounter = 0;   // lets us ignore slow responses from an older search
 
+// View counts per project (idp_id -> number of rows in idp_view), from GET /api/idps/views/counts.
+// Projects nobody has viewed yet are missing from that result, so they show 0.
+// If the request fails, viewCounts stays null and the cards simply hide the views label
+// (better than wrongly showing "0 views" everywhere).
+let viewCounts = null;
+async function loadViewCounts() {
+  try {
+    const response = await fetch(API_BASE + '/api/idps/views/counts');
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const rows = await response.json();
+    viewCounts = new Map(rows.map(r => [r.idpId, r.viewCount]));
+  } catch (err) {
+    console.error('Could not load project view counts:', err);
+    viewCounts = null;
+  }
+}
+
+// Shortlist counts per project (idp_id -> number of customers who shortlisted it),
+// from GET /api/idps/shortlists/counts. Projects nobody has shortlisted are missing
+// from that result, so they show 0. On failure it stays null and the label is hidden.
+let shortlistCounts = null;
+async function loadShortlistCounts() {
+  try {
+    const response = await fetch(API_BASE + '/api/idps/shortlists/counts');
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const rows = await response.json();
+    shortlistCounts = new Map(rows.map(r => [r.idpId, r.shortlistCount]));
+  } catch (err) {
+    console.error('Could not load project shortlist counts:', err);
+    shortlistCounts = null;
+  }
+}
+
 // Builds <tag class="cls">text</tag>. textContent (not innerHTML) means text coming from
 // the database can never be run as HTML/JavaScript.
 function el(tag, cls, text) {
@@ -145,6 +178,14 @@ function buildCard(p) {
   if (p.budget !== null && p.budget !== undefined) {
     meta.push('S$' + Number(p.budget).toLocaleString('en-SG'));
   }
+   if (viewCounts) {
+    const views = viewCounts.get(p.id) || 0;
+    meta.push(views.toLocaleString('en-SG') + (views === 1 ? ' view' : ' views'));
+  }
+  if (shortlistCounts) {
+    const shortlists = shortlistCounts.get(p.id) || 0;
+    meta.push(shortlists.toLocaleString('en-SG') + (shortlists === 1 ? ' shortlist' : ' shortlists'));
+  }
   body.appendChild(el('p', 'project-meta', meta.join(' · ')));
   const more = el('a', 'text-link', 'View project ↗');
   more.href = projectUrl;
@@ -181,6 +222,7 @@ async function loadProjects(keyword, page, append) {
     const response = await fetch(SEARCH_URL + '?' + params.toString());
     if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
+    if (!append) await Promise.all([loadViewCounts(), loadShortlistCounts()]); // fresh counts for each new search
     if (myRequest !== requestCounter) return; // a newer search has started, drop this answer
 
     activeKeyword = keyword;

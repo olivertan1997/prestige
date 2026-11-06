@@ -307,6 +307,39 @@ async function configureSaveButton(button, id) {
   });
 }
 
+// ===== View tracking =====
+// Records one view in the idp_view table (POST /api/idps/{id}/views) and shows the running
+// total in the facts list. A project is counted once per browser tab session, so refreshing
+// the page doesn't inflate the number; in that case we only read the current total.
+function showViewCount(count) {
+  const facts = document.querySelector('.facts');
+  if (!facts) return;
+  const row = document.createElement('div');
+  row.appendChild(el('dt', '', 'Views'));
+  row.appendChild(el('dd', '', Number(count).toLocaleString('en-SG')));
+  facts.appendChild(row);
+}
+
+async function trackView(id) {
+  const key = 'idp-viewed-' + id;
+  let alreadyCounted = false;
+  try { alreadyCounted = sessionStorage.getItem(key) === '1'; } catch (err) { /* storage unavailable */ }
+  try {
+    const response = alreadyCounted
+      ? await fetch(API_BASE + '/api/idps/' + id + '/views/count')
+      : await fetch(API_BASE + '/api/idps/' + id + '/views', { method: 'POST' });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    if (!alreadyCounted) {
+      try { sessionStorage.setItem(key, '1'); } catch (err) { /* storage unavailable */ }
+    }
+    const data = await response.json(); // { idpId, viewCount }
+    showViewCount(data.viewCount);
+  } catch (err) {
+    // Tracking must never break the project page, so just log it
+    console.error('Could not track project view:', err);
+  }
+}
+
 async function loadProject() {
   const id = new URLSearchParams(location.search).get('id');
   if (!/^\d+$/.test(id || '')) {
@@ -322,7 +355,9 @@ async function loadProject() {
       return;
     }
     if (!response.ok) throw new Error('HTTP ' + response.status);
-    renderProject(await response.json());
+    const project = await response.json();
+    renderProject(project);
+    trackView(project.id); // only runs for a project that loaded successfully
   } catch (err) {
     console.error('Could not load project:', err);
     showMessage(root, 'Sorry, we could not load this project right now. Please check the server is running and try again.', true);
