@@ -38,6 +38,7 @@
 .designer-card{margin-top:28px;padding:22px;background:#eae5dc}
 .designer-card h3{font:normal 24px var(--serif);margin:4px 0}
 .designer-card p{margin:0 0 16px;font-size:12px;color:var(--muted)}
+.fav-action{margin-top:18px;border:1px solid #b18c5b;background:#fff;color:#5a4933;padding:11px 16px;cursor:pointer;font-size:13px}.fav-action[aria-pressed="true"]{background:#eee6d9;color:#68441e}.fav-action:disabled{opacity:.55}
 /* designer page */
 .designer-head{display:grid;grid-template-columns:auto 1fr;gap:30px;align-items:center;margin-bottom:45px}
 .avatar{width:112px;height:112px;border-radius:50%;background:#292a26;color:#d0b18a;display:flex;align-items:center;justify-content:center;font:normal 40px var(--serif)}
@@ -127,6 +128,7 @@
   <p>© 2026 PRESTIGE Interior Design. Design for the way you live.</p>
   <div class="footer-links"><a href="about.html">About</a><a href="services.html">Services</a><a href="portfolio.html">Portfolio</a><a href="contact.html">Contact</a></div>
 </footer>
+<script src="feature-client.js"></script>
 <script>
 
 // '' means "the same server that served this page" (works locally and later on AWS).
@@ -254,6 +256,11 @@ function renderProject(p) {
   info.appendChild(facts);
 
   info.appendChild(el('p', 'project-desc-full', p.description || 'No description has been added for this project yet.'));
+  const saveButton = el('button', 'fav-action', '♡ Save to favourites');
+  saveButton.type = 'button';
+  saveButton.setAttribute('aria-pressed', 'false');
+  info.appendChild(saveButton);
+  configureSaveButton(saveButton, p.id);
 
   // ---- Designer card (View Interior Designer) ----
   const card = el('div', 'designer-card');
@@ -271,6 +278,33 @@ function renderProject(p) {
 
   layout.appendChild(info);
   root.appendChild(layout);
+}
+
+async function configureSaveButton(button, id) {
+  let account;
+  let saved = false;
+  const setState = () => {
+    button.textContent = saved ? '♥ Saved — remove' : '♡ Save to favourites';
+    button.setAttribute('aria-pressed', String(saved));
+  };
+  try {
+    account = await FeatureClient.session();
+    if (account && account.role === 'CUSTOMER') {
+      const ids = await FeatureClient.request('/api/favourites/ids');
+      saved = ids.includes(id);
+      setState();
+    }
+  } catch (err) { console.warn('Could not load saved state:', err.message); }
+  button.addEventListener('click', async () => {
+    if (!account) { location.assign(FeatureClient.loginUrl(location.pathname.slice(1) + location.search)); return; }
+    if (account.role !== 'CUSTOMER') { alert('Only customers can save projects.'); return; }
+    button.disabled = true;
+    try {
+      await FeatureClient.request('/api/favourites/' + id, saved ? 'DELETE' : 'PUT', account.csrfToken);
+      saved = !saved; setState();
+    } catch (err) { alert(err.message); }
+    finally { button.disabled = false; }
+  });
 }
 
 async function loadProject() {

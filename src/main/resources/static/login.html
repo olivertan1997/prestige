@@ -30,7 +30,7 @@
 </header>
 <main>
 
-<section class="login-page"><div class="login-image"><div class="login-image-copy"><p class="eyebrow">PRESTIGE CLIENT SPACE</p><h1>Your project,<br><em>all in one place.</em></h1><p>A considered space starts with a good conversation.</p></div></div><div class="login-side"><div class="login-card"><a class="brand login-brand" href="home.html"><span class="brand-mark">I.</span><span><strong>PRESTIGE</strong><small>INTERIOR DESIGN</small></span></a><p class="eyebrow">CLIENT PORTAL</p><h2>Welcome back.</h2><p class="muted">Sign in to continue to your account.</p><form onsubmit="event.preventDefault(); alert('Demo only: connect this form to your Spring Boot authentication endpoint.');"><div class="field"><label for="login-email">Email address</label><input id="login-email" name="email" type="email" placeholder="you@example.com" required></div><div class="field"><label for="login-password">Password</label><input id="login-password" name="password" type="password" placeholder="Enter your password" required></div><div class="login-options"><label class="check-label"><input type="checkbox" name="remember"> Remember me</label><a href="contact.html">Need help?</a></div><button class="btn btn-dark btn-full" type="submit">Sign in ↗</button></form><div class="login-divider"><span>NEW TO PRESTIGE?</span></div><p class="signup-line">Have a project in mind? <a href="contact.html">Contact our studio</a></p><p class="form-note">Demo screen only. Authentication must be implemented securely on the server.</p></div></div></section>
+<section class="login-page"><div class="login-image"><div class="login-image-copy"><p class="eyebrow">PRESTIGE CLIENT SPACE</p><h1>Your project,<br><em>all in one place.</em></h1><p>A considered space starts with a good conversation.</p></div></div><div class="login-side"><div class="login-card"><a class="brand login-brand" href="home.html"><span class="brand-mark">I.</span><span><strong>PRESTIGE</strong><small>INTERIOR DESIGN</small></span></a><p class="eyebrow">CLIENT PORTAL</p><h2>Welcome back.</h2><p class="muted">Sign in to continue to your account.</p><form id="featureLoginForm"><div class="field"><label for="login-email">Email address</label><input id="login-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" required></div><div class="field"><label for="login-password">Password</label><input id="login-password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required></div><button id="loginSubmit" class="btn btn-dark btn-full" type="submit">Sign in ↗</button><p id="loginStatus" class="form-note" role="status" aria-live="polite"></p></form><div class="login-divider"><span>NEW TO PRESTIGE?</span></div><p class="signup-line">Have a project in mind? <a href="contact.html">Contact our studio</a></p><p class="form-note">This demo signs you in with a server-side session. For deployment, use HTTPS.</p></div></div></section>
 
 </main>
 <footer class="site-footer">
@@ -38,5 +38,32 @@
   <p>© 2026 PRESTIGE Interior Design. Design for the way you live.</p>
   <div class="footer-links"><a href="about.html">About</a><a href="services.html">Services</a><a href="portfolio.html">Portfolio</a><a href="contact.html">Contact</a></div>
 </footer>
+<script src="feature-client.js"></script>
+<script>
+const loginForm = document.getElementById('featureLoginForm');
+const loginStatus = document.getElementById('loginStatus');
+loginForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = document.getElementById('loginSubmit');
+  button.disabled = true;
+  loginStatus.textContent = 'Signing in…';
+  try {
+    const account = await FeatureClient.request('/api/feature-session/login', 'POST', null, {
+      email: document.getElementById('login-email').value,
+      password: document.getElementById('login-password').value
+    });
+    const requested = new URLSearchParams(location.search).get('next');
+    // Only navigate to local HTML pages. No open redirects to another host.
+    const safeNext = requested && /^\/?[a-z0-9-]+\.html(?:\?[a-z0-9_=&%-]*)?$/i.test(requested)
+      ? requested.replace(/^\//, '') : null;
+    const defaultPage = account.role === 'USER_ADMIN' ? 'admin-reports.html' :
+      account.role === 'CUSTOMER' ? 'portfolio.html' : 'home.html';
+    location.assign(safeNext || defaultPage);
+  } catch (err) {
+    loginStatus.textContent = 'Sign-in failed. Check your email and password, or account status.';
+    button.disabled = false;
+  }
+});
+</script>
 </body>
 </html>

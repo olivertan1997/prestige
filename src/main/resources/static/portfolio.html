@@ -29,7 +29,7 @@
 .empty-state h3{font:normal 26px var(--serif);margin:0 0 8px}
 .empty-state p{margin:0;font-size:13px;color:var(--muted)}
 .load-more{text-align:center;margin-top:40px}
-.btn[hidden]{display:none} /* the template's .btn rule would otherwise override the hidden attribute */
+.fav-action{margin-top:12px;border:1px solid #b18c5b;background:#fff;color:#5a4933;padding:9px 12px;cursor:pointer;font-size:12px}.fav-action[aria-pressed="true"]{background:#eee6d9;color:#68441e}.fav-action:disabled{opacity:.55;cursor:wait}.btn[hidden]{display:none} /* the template's .btn rule would otherwise override the hidden attribute */
 @media(max-width:560px){.search-bar{flex-wrap:wrap}.search-bar input{flex-basis:100%}.search-bar .btn{flex:1}}
 </style>
 </head>
@@ -59,7 +59,7 @@
   <button class="btn btn-dark" type="submit">Search</button>
   <button class="btn btn-ghost" type="button" id="clearBtn" hidden>Clear</button>
 </form>
-<p class="search-status" id="searchStatus" role="status" aria-live="polite"></p>
+<p class="search-status" id="searchStatus" role="status" aria-live="polite"></p><p><a class="text-link" href="favourites.html">View my saved projects ♡</a></p>
 <div class="portfolio-grid" id="projectGrid"></div>
 <div class="load-more"><button class="btn btn-dark" type="button" id="loadMoreBtn" hidden>Load more projects</button></div>
 </section>
@@ -71,6 +71,7 @@
   <p>© 2026 PRESTIGE Interior Design. Design for the way you live.</p>
   <div class="footer-links"><a href="about.html">About</a><a href="services.html">Services</a><a href="portfolio.html">Portfolio</a><a href="contact.html">Contact</a></div>
 </footer>
+<script src="feature-client.js"></script>
 <script>
 // ===== Project search =====
 // '' means "the same server that served this page" (works locally and later on AWS).
@@ -148,6 +149,7 @@ function buildCard(p) {
   const more = el('a', 'text-link', 'View project ↗');
   more.href = projectUrl;
   body.appendChild(more);
+  appendFavAction(body, p.id);
   card.appendChild(body);
   return card;
 }
@@ -220,8 +222,55 @@ form.addEventListener('submit', e => { e.preventDefault(); runSearch(input.value
 clearBtn.addEventListener('click', () => { runSearch(''); input.focus(); });
 loadMoreBtn.addEventListener('click', () => loadProjects(activeKeyword, nextPage, true));
 
+// Current customer and current list are loaded once, never sent as a trusted customerId.
+let favAccount = null;
+const favIds = new Set();
+function updateFavButtons() {
+  document.querySelectorAll('.fav-action').forEach(button => {
+    const saved = favIds.has(Number(button.dataset.idpId));
+    button.setAttribute('aria-pressed', String(saved));
+    button.textContent = saved ? '♥ Saved — remove' : '♡ Save to favourites';
+  });
+}
+function appendFavAction(container, id) {
+  const button = el('button', 'fav-action');
+  button.type = 'button';
+  button.dataset.idpId = String(id);
+  button.addEventListener('click', async () => {
+    if (!favAccount) {
+      location.assign(FeatureClient.loginUrl('portfolio.html?q=' + encodeURIComponent(activeKeyword)));
+      return;
+    }
+    if (favAccount.role !== 'CUSTOMER') {
+      setStatus('Only customer accounts can save projects.', true);
+      return;
+    }
+    button.disabled = true;
+    try {
+      const saved = favIds.has(id);
+      await FeatureClient.request('/api/favourites/' + id, saved ? 'DELETE' : 'PUT', favAccount.csrfToken);
+      if (saved) favIds.delete(id); else favIds.add(id);
+      updateFavButtons();
+    } catch (err) { setStatus(err.message, true); }
+    finally { button.disabled = false; }
+  });
+  container.appendChild(button);
+  updateFavButtons();
+}
+async function bootFavourites() {
+  try {
+    favAccount = await FeatureClient.session();
+    if (favAccount && favAccount.role === 'CUSTOMER') {
+      const ids = await FeatureClient.request('/api/favourites/ids');
+      ids.forEach(id => favIds.add(id));
+      updateFavButtons();
+    }
+  } catch (err) { console.warn('Favourites unavailable:', err.message); }
+}
 // On page load: show everything, or the keyword from ?q=
 runSearch(new URLSearchParams(window.location.search).get('q') || '');
+bootFavourites();
 </script>
+<script src="feature-client.js"></script>
 </body>
 </html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Favourites | PRESTIGE</title>
+<style>
+:root{--paper:#f7f5f0;--ink:#252521;--gold:#b18c5b;--line:#e5e0d7;--muted:#76736e}
+*{box-sizing:border-box}body{background:var(--paper);color:var(--ink);font:14px/1.7 Arial,sans-serif;margin:0}
+header{background:#20211e;color:#fff;padding:20px max(5%,calc((100% - 1100px)/2));display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+a{color:inherit}header a{text-decoration:none;margin-right:18px}header strong{letter-spacing:3px}main{max-width:1100px;margin:50px auto;padding:0 24px;min-height:65vh}
+h1,h2{font-family:Georgia,serif;font-weight:normal}h1{font-size:clamp(36px,5vw,56px);margin:0 0 10px}
+.intro{color:var(--muted);margin-bottom:32px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px}
+.card{background:#fff;border:1px solid var(--line);padding-bottom:20px}.card img{height:210px;width:100%;object-fit:cover}
+.card-body{padding:0 20px}.card h2{font-size:25px;margin-bottom:0}.card p{font-size:12px;color:var(--muted)}
+button,.button{border:1px solid var(--gold);background:#fff;color:var(--ink);padding:11px 14px;cursor:pointer;font-size:12px;text-decoration:none;display:inline-block;margin:6px 8px 0 0}
+button:disabled{opacity:.55;cursor:wait}.empty{padding:42px;background:#fff;border:1px solid var(--line)}
+#message{min-height:24px;color:#765534}footer{padding:26px 5%;background:#20211e;color:#bdb9ae;text-align:center}
+</style></head><body>
+<header><a href="home.html"><strong>PRESTIGE</strong> INTERIOR DESIGN</a><nav><a href="portfolio.html">Browse projects</a><a href="favourites.html">My favourites</a><a href="login.html">Sign in</a></nav></header>
+<main><p class="intro">YOUR PERSONAL COLLECTION</p><h1>Saved spaces.</h1><p class="intro">Keep design ideas together and return to them whenever you need inspiration.</p>
+<p id="message" role="status" aria-live="polite">Loading saved projects…</p><div id="grid" class="grid"></div></main>
+<footer>© 2026 PRESTIGE Interior Design</footer>
+<script src="feature-client.js"></script><script>
+const grid=document.getElementById('grid'), msg=document.getElementById('message');
+let account;
+function el(tag,text,cls){const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n;}
+function fallback(id){const pics=['https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=700','https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=700'];return pics[id%pics.length];}
+function card(item){
+  const p=item.project, root=el('article',null,'card');
+  const img=el('img');img.alt=p.title;img.onerror=()=>{img.onerror=null;img.src=fallback(p.id)};
+  img.src=/^\/(uploads|api\/files)\//.test(p.coverImageUrl||'')?p.coverImageUrl:fallback(p.id);
+  root.append(img);const content=el('div',null,'card-body');
+  content.append(el('p',[p.category,p.location].filter(Boolean).join(' · ')),el('h2',p.title));
+  if(p.description) content.append(el('p',p.description.length>180?p.description.slice(0,180)+'…':p.description));
+  const link=el('a','View project','button');link.href='project.html?id='+p.id;content.append(link);
+  const button=el('button','Remove favourite');
+  button.addEventListener('click',async()=>{
+    button.disabled=true;
+    try{await FeatureClient.request('/api/favourites/'+p.id,'DELETE',account.csrfToken);root.remove();
+      if(!grid.children.length) msg.textContent='No saved projects. Browse the portfolio to start collecting ideas.';
+      else msg.textContent='Favourite removed.';
+    }catch(e){msg.textContent=e.message;button.disabled=false;}
+  });content.append(button);root.append(content);return root;
+}
+(async()=>{
+  try{
+    account=await FeatureClient.session();
+    if(!account){msg.replaceChildren(el('span','Sign in to view your favourites. '));
+      const a=el('a','Sign in');a.href=FeatureClient.loginUrl('favourites.html');msg.append(a);return;}
+    if(account.role!=='CUSTOMER'){msg.textContent='Only customer accounts can maintain favourites.';return;}
+    const items=await FeatureClient.request('/api/favourites');
+    grid.replaceChildren(...items.map(card));
+    msg.textContent=items.length?items.length+' saved project(s)':'No saved projects. Browse the portfolio to start collecting ideas.';
+  }catch(e){msg.textContent=e.message;}
+})();
+</script></body></html>

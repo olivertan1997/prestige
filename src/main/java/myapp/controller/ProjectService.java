@@ -101,6 +101,7 @@ public class ProjectService {
     public ProjectDetailResponse getProject(Integer id) {
         InteriorDesignProject p = projectRepository.findById(id)
                 .filter(project -> !project.isDeleted())
+                .filter(project -> userRepository.findActiveDesigner(project.getDesignerId()).isPresent())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
 
         List<ProjectDetailResponse.Image> images = imageRepository.findByIdpIdOrderByDisplayOrderAsc(id).stream()
@@ -190,6 +191,11 @@ public class ProjectService {
 
             List<Predicate> conditions = new ArrayList<>();
             conditions.add(cb.isFalse(root.<Boolean>get("deleted"))); // hide soft-deleted projects
+            // A suspended/soft-deleted designer's projects must never appear in customer search.
+            Join<InteriorDesignProject, User> designer = root.join("designer", JoinType.INNER);
+            conditions.add(cb.equal(designer.<String>get("role"), "INTERIOR_DESIGNER"));
+            conditions.add(cb.equal(designer.<String>get("status"), "ACTIVE"));
+            conditions.add(cb.isFalse(designer.<Boolean>get("deleted")));
 
             for (String term : terms) {
                 String pattern = "%" + escapeLike(term.toLowerCase(Locale.ROOT)) + "%";

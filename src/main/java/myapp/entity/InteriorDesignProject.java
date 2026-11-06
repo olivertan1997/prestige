@@ -30,6 +30,11 @@ public class InteriorDesignProject {
     @Column(name = "designer_id", nullable = false)
     private Integer designerId;
 
+    // Read-only relationship for visibility checks; the FK remains controlled by designerId.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "designer_id", insertable = false, updatable = false)
+    private User designer;
+
     // Many projects belong to one category (category_id is the foreign key column)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
