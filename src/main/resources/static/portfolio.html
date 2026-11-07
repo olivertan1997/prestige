@@ -299,16 +299,35 @@ function appendFavAction(container, id) {
   container.appendChild(button);
   updateFavButtons();
 }
+
+let favouritesRefreshVersion = 0;
+
 async function bootFavourites() {
+  const version = ++favouritesRefreshVersion;
+
   try {
-    favAccount = await FeatureClient.session();
-    if (favAccount && favAccount.role === 'CUSTOMER') {
-      const ids = await FeatureClient.request('/api/favourites/ids');
-      ids.forEach(id => favIds.add(id));
-      updateFavButtons();
-    }
-  } catch (err) { console.warn('Favourites unavailable:', err.message); }
+    const account = await FeatureClient.session();
+
+    const ids = account && account.role === 'CUSTOMER'
+      ? await FeatureClient.request('/api/favourites/ids')
+      : [];
+
+    if (version !== favouritesRefreshVersion) return;
+
+    favAccount = account;
+    favIds.clear();
+    ids.forEach(id => favIds.add(Number(id)));
+    updateFavButtons();
+
+  } catch (err) {
+    console.warn('Favourites unavailable:', err.message);
+  }
 }
+
+window.addEventListener('pageshow', event => {
+  if (event.persisted) bootFavourites();
+});
+
 // On page load: show everything, or the keyword from ?q=
 runSearch(new URLSearchParams(window.location.search).get('q') || '');
 bootFavourites();
