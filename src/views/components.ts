@@ -1,0 +1,101 @@
+import { html } from "hono/html";
+import { fmtDate } from "../lib/dates";
+import { PROJECT_STATUS_LABELS, type Project } from "../types";
+import type { H } from "./layout";
+
+export const money = (n: number | null | undefined) =>
+  n === null || n === undefined ? "-" : "$" + Math.round(n).toLocaleString("en-US");
+
+export function badge(kind: string, text: string): H {
+  return html`<span class="badge badge-${kind.toLowerCase()}">${text}</span>`;
+}
+
+export const placeholderClass = (p: Pick<Project, "categoryId">) => `ph-${(p.categoryId ?? 0) % 6}`;
+
+export function projectCard(p: Project, favIds?: Set<number> | null): H {
+  return html`<article class="card project-card">
+  <a class="thumb ${placeholderClass(p)}" href="/projects/${p.id}">
+    ${p.imageUrl ? html`<img src="${p.imageUrl}" alt="${p.title}" loading="lazy">` : html`<span class="ph-letter">${p.title.slice(0, 1)}</span>`}
+    <span class="badge ${p.status === "CURRENT" ? "badge-current" : "badge-past"}">${PROJECT_STATUS_LABELS[p.status]} project</span>
+    ${favIds?.has(p.id) ? html`<span class="fav-flag">&#9829; Saved</span>` : ""}
+  </a>
+  <div class="card-body">
+    <p class="eyebrow">${p.categoryName ?? "Uncategorised"}</p>
+    <h3><a href="/projects/${p.id}">${p.title}</a></h3>
+    <p class="muted small" style="margin:0">${p.designerName}${p.location ? ` · ${p.location}` : ""}</p>
+  </div>
+</article>`;
+}
+
+export function projectGrid(projects: Project[], favIds?: Set<number> | null, empty = "No projects yet."): H {
+  return projects.length
+    ? html`<div class="cards">${projects.map((p) => projectCard(p, favIds))}</div>`
+    : html`<div class="panel empty">${empty}</div>`;
+}
+
+// ------------------------------------------------------------------ forms
+
+export interface FormState {
+  values: Record<string, string | null | undefined>;
+  errors: Record<string, string>;
+  global?: string | null;
+}
+
+export const emptyForm = (values: Record<string, string | null | undefined> = {}): FormState => ({ values, errors: {} });
+
+export function globalError(f: FormState): H {
+  return f.global ? html`<div class="alert alert-error" role="alert">${f.global}</div>` : html``;
+}
+
+interface FieldOpts {
+  type?: string;
+  placeholder?: string;
+  hint?: string;
+  full?: boolean;
+  required?: boolean;
+  maxlength?: number;
+  readonly?: boolean;
+  min?: string;
+  max?: string;
+  step?: string;
+  autocomplete?: string;
+  keepValue?: boolean;
+}
+
+function wrap(f: FormState, name: string, label: string, control: H, opts: FieldOpts): H {
+  const err = f.errors[name];
+  return html`<div class="field${opts.full ? " full" : ""}${err ? " has-error" : ""}">
+    <label for="${name}">${label}</label>
+    ${control}
+    ${opts.hint ? html`<span class="hint">${opts.hint}</span>` : ""}
+    ${err ? html`<span class="error-text">${err}</span>` : ""}
+  </div>`;
+}
+
+export function input(f: FormState, name: string, label: string, opts: FieldOpts = {}): H {
+  const type = opts.type ?? "text";
+  const value = type === "password" ? "" : (f.values[name] ?? "");
+  return wrap(f, name, label, html`<input type="${type}" id="${name}" name="${name}" value="${value}"${opts.placeholder ? html` placeholder="${opts.placeholder}"` : ""}${opts.maxlength ? html` maxlength="${opts.maxlength}"` : ""}${opts.min ? html` min="${opts.min}"` : ""}${opts.max ? html` max="${opts.max}"` : ""}${opts.step ? html` step="${opts.step}"` : ""}${opts.autocomplete ? html` autocomplete="${opts.autocomplete}"` : ""}${opts.readonly ? html` readonly` : ""}${opts.required ? html` required` : ""}>`, opts);
+}
+
+export function textarea(f: FormState, name: string, label: string, opts: FieldOpts & { rows?: number } = {}): H {
+  return wrap(f, name, label, html`<textarea id="${name}" name="${name}" rows="${opts.rows ?? 4}"${opts.maxlength ? html` maxlength="${opts.maxlength}"` : ""}${opts.placeholder ? html` placeholder="${opts.placeholder}"` : ""}>${f.values[name] ?? ""}</textarea>`, opts);
+}
+
+export function select(f: FormState, name: string, label: string, options: { value: string; label: string }[], opts: FieldOpts & { blank?: string } = {}): H {
+  const current = f.values[name] ?? "";
+  return wrap(f, name, label, html`<select id="${name}" name="${name}">
+    ${opts.blank !== undefined ? html`<option value="">${opts.blank}</option>` : ""}
+    ${options.map((o) => html`<option value="${o.value}"${o.value === current ? html` selected` : ""}>${o.label}</option>`)}
+  </select>`, opts);
+}
+
+/** A select used in a GET filter bar (no form state). */
+export function filterSelect(name: string, label: string, options: { value: string; label: string }[], current: string | null | undefined, blank: string): H {
+  return html`<div class="field"><label for="${name}">${label}</label><select id="${name}" name="${name}">
+    <option value="">${blank}</option>
+    ${options.map((o) => html`<option value="${o.value}"${o.value === (current ?? "") ? html` selected` : ""}>${o.label}</option>`)}
+  </select></div>`;
+}
+
+export const fmt = { date: fmtDate };

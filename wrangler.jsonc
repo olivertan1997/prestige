@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Prestige Interior Design - runs on the FREE Cloudflare Workers plan.
+  // URL after deploy: https://prestige-interior.<your-subdomain>.workers.dev
+  "name": "prestige-interior",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // CSS and images are served straight from Cloudflare's edge (free, does not use Worker requests).
+  "assets": { "directory": "./public" },
+
+  // Hyperdrive connects the Worker to Supabase PostgreSQL (free plan: 100,000 queries/day).
+  // The id is filled in automatically by scripts/hyperdrive.mjs during the GitHub Actions deploy.
+  "hyperdrive": [
+    { "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }
+  ]
+}

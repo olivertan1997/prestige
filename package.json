@@ -1,0 +1,29 @@
+{
+  "name": "prestige-interior-design",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Prestige Interior Design - TypeScript website on the free Cloudflare Workers plan with Supabase PostgreSQL",
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/run-tests.mjs",
+    "typecheck": "tsc --noEmit",
+    "migrate": "tsx scripts/migrate.ts",
+    "deploy": "wrangler deploy",
+    "logs": "wrangler tail"
+  },
+  "dependencies": {
+    "hono": "^4.13.16",
+    "postgres": "^4.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261106.1",
+    "@electric-sql/pglite": "^0.5.15",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.158.0"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

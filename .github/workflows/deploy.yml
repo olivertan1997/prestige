@@ -1,0 +1,73 @@
+name: Test and deploy to Cloudflare
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Run test suite (6 specs + 12 user stories)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: "Run tests (prints 'Feature N: Good' per feature)"
+        run: npm test
+
+  deploy:
+    name: Deploy to Cloudflare Workers (free plan)
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      APP_SEED_PASSWORD: ${{ secrets.APP_SEED_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Check that all required secrets are set
+        run: |
+          missing=0
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID DB_HOST DB_USER DB_PASSWORD; do
+            if [ -z "${!name}" ]; then echo "::error::GitHub secret $name is not set"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create / upgrade the Supabase tables (and demo data on first run)
+        run: npx tsx scripts/migrate.ts
+
+      - name: Connect Hyperdrive to Supabase (caching off)
+        run: node scripts/hyperdrive.mjs
+
+      - name: Deploy the Worker
+        run: npx wrangler deploy
