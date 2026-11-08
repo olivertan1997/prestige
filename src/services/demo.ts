@@ -24,6 +24,25 @@ export async function seedDemoData(db: Db, password: string): Promise<boolean> {
   const emily = await ensure("emily", "Emily Chen", "CUSTOMER", 40);
   const daniel = await ensure("daniel", "Daniel Ng", "CUSTOMER", 10);
 
+  const company = (designerId: number, values: unknown[]) =>
+    db.query(
+      `insert into companies (designer_id, name, registration_number, description, address, phone, email, website, years_in_business, specialties)
+       values ($1::int, $2, $3, $4, $5, $6, $7, $8, $9::int, $10) on conflict (designer_id) do nothing`,
+      [designerId, ...values],
+    );
+  await company(sophia.id, [
+    "Atelier Tan Interiors", "201912345K",
+    "Award-winning residential studio known for calm, light-filled homes that balance Scandinavian simplicity with warm Asian craftsmanship.",
+    "21 Bukit Timah Road, #03-02", "+65 6123 4567", "hello@ateliertan.example.com", "https://ateliertan.example.com", 9,
+    "Scandinavian, Japandi, HDB & condo renovation",
+  ]);
+  await company(marcus.id, [
+    "Lee & Lumen Design Studio", "201554321M",
+    "Commercial and luxury residential interiors with a focus on lighting, bespoke joinery and statement materials.",
+    "88 Tanjong Pagar Road, #02-01", "+65 6987 6543", "studio@leelumen.example.com", "https://leelumen.example.com", 12,
+    "Modern luxury, industrial, offices, F&B",
+  ]);
+
   const project = async (designerId: number, category: string, title: string, style: string, location: string,
     budget: number, status: ProjectStatus, ageDays: number, description: string) => {
     const row = await one<{ id: number }>(
@@ -53,5 +72,29 @@ export async function seedDemoData(db: Db, password: string): Promise<boolean> {
     "Exposed ceilings, black steel frames and acoustic timber baffles for a 40-person creative team.");
   const p7 = await project(marcus.id, "Retail & F&B", "Boutique Cafe Interior", "Contemporary", "Joo Chiat", 54000, "CURRENT", 15,
     "Terrazzo counters, curved banquettes and a living plant wall for a neighbourhood specialty cafe.");
+
+  // Availability for the next six weeks (bulk insert per designer).
+  const availability = async (designerId: number, weekdays: number[], times: [string, string][]) => {
+    const dates: string[] = [], starts: string[] = [], ends: string[] = [], statuses: string[] = [];
+    let n = 0;
+    for (let i = 1; i <= 42; i++) {
+      const day = addDays(todayLocal(), i);
+      if (!weekdays.includes(new Date(`${day}T00:00:00Z`).getUTCDay())) continue;
+      for (const [start, end] of times) {
+        dates.push(day);
+        starts.push(start);
+        ends.push(end);
+        statuses.push(n++ % 4 === 1 ? "BOOKED" : "AVAILABLE");
+      }
+    }
+    await db.query(
+      `insert into availability_slots (designer_id, slot_date, start_time, end_time, status, note)
+       select $1::int, d::date, s::time, e::time, st, 'Consultation / site visit'
+         from unnest(string_to_array($2, ','), string_to_array($3, ','), string_to_array($4, ','), string_to_array($5, ',')) as t(d, s, e, st)`,
+      [designerId, dates.join(","), starts.join(","), ends.join(","), statuses.join(",")],
+    );
+  };
+  await availability(sophia.id, [1, 3, 5], [["10:00", "12:00"], ["14:00", "17:00"]]);
+  await availability(marcus.id, [2, 4, 6], [["09:30", "12:30"]]);
   return true;
 }

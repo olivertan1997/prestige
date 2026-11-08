@@ -1,5 +1,6 @@
 import { html } from "hono/html";
 import { fmtDate } from "../lib/dates";
+import type { CalendarMonth } from "../services/availability";
 import { PROJECT_STATUS_LABELS, type Project } from "../types";
 import type { H } from "./layout";
 
@@ -31,6 +32,37 @@ export function projectGrid(projects: Project[], favIds?: Set<number> | null, em
   return projects.length
     ? html`<div class="cards">${projects.map((p) => projectCard(p, favIds))}</div>`
     : html`<div class="panel empty">${empty}</div>`;
+}
+
+/** Month calendar of availability (story 2). */
+export function calendar(cal: CalendarMonth, baseUrl: string): H {
+  return html`<div class="calendar" id="calendar">
+  <div class="cal-head">
+    <a class="btn btn-ghost btn-sm" href="${baseUrl}?month=${cal.prev}#calendar">&lsaquo; Prev</a>
+    <h3>${cal.label}</h3>
+    <a class="btn btn-ghost btn-sm" href="${baseUrl}?month=${cal.next}#calendar">Next &rsaquo;</a>
+  </div>
+  <div class="cal-legend">
+    <span><span class="dot available"></span>Available</span>
+    <span><span class="dot booked"></span>Booked</span>
+    <span>${cal.availableSlots} open slot(s) this month</span>
+  </div>
+  <div class="cal-grid">
+    ${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => html`<div class="cal-dow">${d}</div>`)}
+    ${cal.weeks.flat().map((day) => {
+      const classes = ["cal-day", day.inMonth ? "" : "out", day.today ? "today" : "", day.past ? "past" : "",
+        !day.past && day.slots.some((s) => s.status === "AVAILABLE") ? "has-available" : ""].filter(Boolean).join(" ");
+      return html`<div class="${classes}">
+        <span class="num">${day.day}</span>
+        ${day.slots.length
+          ? html`<ul class="slots">${day.slots.map(
+              (s) => html`<li class="${s.status === "AVAILABLE" ? "available" : "booked"}" title="${s.status === "AVAILABLE" ? "Available" : "Booked"}${s.note ? ` - ${s.note}` : ""}">${s.startTime}-${s.endTime}</li>`,
+            )}</ul>`
+          : ""}
+      </div>`;
+    })}
+  </div>
+</div>`;
 }
 
 // ------------------------------------------------------------------ forms

@@ -1,7 +1,78 @@
-// IDP categories.
+// Spec 2 (company information) and IDP categories.
 import { one, type Db } from "../db";
 import { BusinessError, NotFoundError, clean } from "../lib/errors";
-import type { Category } from "../types";
+import type { Category, Company } from "../types";
+import { requireUser } from "./users";
+
+// ------------------------------------------------------------------ companies
+
+const COMPANY_COLS = `id, designer_id as "designerId", name, registration_number as "registrationNumber", description, address,
+  phone, email, website, years_in_business as "yearsInBusiness", specialties, updated_at as "updatedAt"`;
+
+export interface CompanyInput {
+  name?: string;
+  registrationNumber?: string;
+  description?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  yearsInBusiness?: string;
+  specialties?: string;
+}
+
+export function getCompany(db: Db, designerId: number): Promise<Company | null> {
+  return one<Company>(db, `select ${COMPANY_COLS} from companies where designer_id = $1::int`, [designerId]);
+}
+
+/** Field-level validation for the company form. */
+export function validateCompany(input: CompanyInput): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const name = clean(input.name);
+  if (!name) errors.name = "Company name is required";
+  else if (name.length > 120) errors.name = "At most 120 characters";
+  const email = clean(input.email);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Enter a valid email address";
+  const website = clean(input.website);
+  if (website && !/^https?:\/\/.+/i.test(website)) errors.website = "Website must start with http:// or https://";
+  const years = clean(input.yearsInBusiness);
+  if (years && (!/^\d{1,3}$/.test(years) || Number(years) > 200)) errors.yearsInBusiness = "Enter a number between 0 and 200";
+  if ((clean(input.description) ?? "").length > 2000) errors.description = "At most 2000 characters";
+  return errors;
+}
+
+/** Creates the company the first time, updates it afterwards. */
+export async function saveCompany(db: Db, designerId: number, input: CompanyInput): Promise<Company> {
+  const designer = await requireUser(db, designerId);
+  if (designer.role !== "INTERIOR_DESIGNER") throw new BusinessError("Only Interior Designers have company information.");
+  const errors = validateCompany(input);
+  const first = Object.values(errors)[0];
+  if (first) throw new BusinessError(first + ".");
+  const years = clean(input.yearsInBusiness);
+  const saved = await one<Company>(
+    db,
+    `insert into companies (designer_id, name, registration_number, description, address, phone, email, website, years_in_business, specialties)
+     values ($1::int, $2, $3, $4, $5, $6, $7, $8, $9::int, $10)
+     on conflict (designer_id) do update set name = excluded.name, registration_number = excluded.registration_number,
+       description = excluded.description, address = excluded.address, phone = excluded.phone, email = excluded.email,
+       website = excluded.website, years_in_business = excluded.years_in_business, specialties = excluded.specialties,
+       updated_at = now()
+     returning ${COMPANY_COLS}`,
+    [
+      designerId,
+      clean(input.name),
+      clean(input.registrationNumber),
+      clean(input.description),
+      clean(input.address),
+      clean(input.phone),
+      clean(input.email),
+      clean(input.website),
+      years === null ? null : Number(years),
+      clean(input.specialties),
+    ],
+  );
+  return saved!;
+}
 
 // ----------------------------------------------------------------- categories
 

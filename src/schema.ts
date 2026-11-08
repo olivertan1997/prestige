@@ -25,6 +25,21 @@ create table if not exists sessions (
 );
 create index if not exists idx_sessions_user on sessions(user_id);
 
+create table if not exists companies (
+  id integer generated always as identity primary key,
+  designer_id integer not null unique references user_accounts(id),
+  name text not null,
+  registration_number text,
+  description text,
+  address text,
+  phone text,
+  email text,
+  website text,
+  years_in_business integer,
+  specialties text,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists categories (
   id integer generated always as identity primary key,
   name text not null unique,
@@ -52,4 +67,15 @@ create table if not exists design_projects (
   updated_at timestamptz not null default now()
 );
 create index if not exists idx_projects_designer on design_projects(designer_id);
+
+create table if not exists availability_slots (
+  id integer generated always as identity primary key,
+  designer_id integer not null references user_accounts(id),
+  slot_date date not null,
+  start_time time not null,
+  end_time time not null,
+  status text not null default 'AVAILABLE' check (status in ('AVAILABLE','BOOKED')),
+  note text
+);
+create index if not exists idx_slots_designer_date on availability_slots(designer_id, slot_date);
 `;

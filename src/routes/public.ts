@@ -2,14 +2,18 @@ import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { AppEnv } from "../env";
 import { pageCtx } from "../lib/context";
+import { parseMonth } from "../lib/dates";
 import { intParam, isHttps, readForm, setFlash, type Ctx } from "../lib/http";
 import { SESSION_COOKIE, SESSION_DAYS, createSession, destroySession } from "../lib/sessions";
-import { listActiveCategories } from "../services/catalog";
+import { buildCalendar } from "../services/availability";
+import { getCompany, listActiveCategories } from "../services/catalog";
+import { countActiveDesigners, getActiveDesigner, listDesigners } from "../services/directory";
 import {
   featuredProjects,
+  searchProjects,
 } from "../services/projects";
 import { authenticate } from "../services/users";
-import { homePage, loginPage } from "../views/public";
+import { designerPage, designersPage, homePage, loginPage, searchPage } from "../views/public";
 
 export const publicRoutes = new Hono<AppEnv>();
 
@@ -17,11 +21,13 @@ publicRoutes.get("/healthz", (c) => c.text("ok"));
 
 publicRoutes.get("/", async (c) => {
   const db = c.get("db");
-  const [featured, categories] = await Promise.all([
+  const [featured, categories, designers, designerCount] = await Promise.all([
     featuredProjects(db),
     listActiveCategories(db),
+    listDesigners(db, null, 3),
+    countActiveDesigners(db),
   ]);
-  return c.html(homePage(pageCtx(c), featured, categories, c.req.query("logout") !== undefined));
+  return c.html(homePage(pageCtx(c), featured, categories, designers, designerCount, c.req.query("logout") !== undefined));
 });
 
 // ---------------------------------------------------------------- login / logout
@@ -56,6 +62,42 @@ publicRoutes.post("/logout", async (c) => {
 /** Sends each role to its own workspace. */
 publicRoutes.get("/dashboard", (c) => {
   const role = c.get("user")!.role;
-  const target = { USER_ADMIN: "/", PLATFORM_MANAGEMENT: "/", INTERIOR_DESIGNER: "/", CUSTOMER: "/" }[role];
+  const target = { USER_ADMIN: "/", PLATFORM_MANAGEMENT: "/", INTERIOR_DESIGNER: "/designer/dashboard", CUSTOMER: "/projects" }[role];
   return c.redirect(target);
+});
+
+// --------------------------------------------------------------------- projects
+
+publicRoutes.get("/projects", async (c) => {
+  const db = c.get("db");
+  const view = {
+    q: c.req.query("q") ?? "",
+    category: intParam(c.req.query("category")),
+    status: c.req.query("status") ?? "",
+    sort: c.req.query("sort") ?? "newest",
+  };
+  const [result, categories] = await Promise.all([
+    searchProjects(db, { q: view.q, categoryId: view.category, status: view.status, sort: view.sort, page: intParam(c.req.query("page")) ?? 0 }),
+    listActiveCategories(db),
+  ]);
+  return c.html(searchPage(pageCtx(c), result, view, categories));
+});
+
+// -------------------------------------------------------------------- designers
+
+publicRoutes.get("/designers", async (c) => {
+  const q = c.req.query("q") ?? "";
+  return c.html(designersPage(pageCtx(c), await listDesigners(c.get("db"), q), q));
+});
+
+publicRoutes.get("/designers/:id", async (c) => {
+  const db = c.get("db");
+  const id = intParam(c.req.param("id"));
+  if (id === null) return c.notFound();
+  const designer = await getActiveDesigner(db, id);
+  const [company, calendar] = await Promise.all([
+    getCompany(db, id),
+    buildCalendar(db, id, parseMonth(c.req.query("month"))),
+  ]);
+  return c.html(designerPage(pageCtx(c), { designer, company, calendar }));
 });

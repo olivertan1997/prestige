@@ -1,34 +1,69 @@
 import { html } from "hono/html";
+import type { CalendarMonth } from "../services/availability";
+import type { DesignerCard } from "../services/directory";
+import type { ProjectPage } from "../services/projects";
 import {
+  PROJECT_STATUSES,
+  PROJECT_STATUS_LABELS,
   type Category,
+  type Company,
   type Project,
+  type User,
 } from "../types";
 import {
+  calendar,
+  filterSelect,
   projectGrid,
 } from "./components";
 import { page, type H, type PageCtx } from "./layout";
 
 const TITLE = "Prestige Interior Design";
 
-export function homePage(ctx: PageCtx, featured: Project[], categories: Category[], logout: boolean): H {
+function designerCards(designers: DesignerCard[]): H {
+  return html`<div class="grid grid-3">${designers.map(
+    (d) => html`<a class="card designer-card" href="/designers/${d.id}" style="color:inherit">
+      <div class="top">
+        <div class="monogram">${(d.companyName ?? d.fullName).slice(0, 1)}</div>
+        <div><h3 style="margin:0">${d.companyName ?? d.fullName}</h3><span class="muted small">${d.fullName}</span></div>
+      </div>
+      <p class="muted small" style="margin:0">${d.specialties ?? (d.description ? d.description.slice(0, 140) : "Interior design studio")}</p>
+      <div class="row small" style="margin-top:auto"><span class="right muted">${d.projectCount} project(s)</span></div>
+    </a>`,
+  )}</div>`;
+}
+
+export function homePage(ctx: PageCtx, featured: Project[], categories: Category[], designers: DesignerCard[], designerCount: number, logout: boolean): H {
   const hero = html`<section class="hero"><div class="container">
     <p class="eyebrow" style="color:#d9b77e">Prestige Interior Design</p>
     <h1>Find the designer behind your <em>dream space</em>.</h1>
     <p class="lead">Browse real interior design projects, compare studios, check their availability and save your favourite ideas for later.</p>
+    <form class="hero-search" action="/projects" method="get" role="search">
+      <input type="search" name="q" placeholder="Try &quot;Japandi kitchen&quot;, &quot;Scandinavian&quot; or &quot;Punggol&quot;" aria-label="Search projects">
+      <button class="btn btn-gold" type="submit">Search projects</button>
+    </form>
     <div class="hero-stats">
       <div><strong>${featured.length}+</strong><span>featured projects</span></div>
       <div><strong>${categories.length}</strong><span>design categories</span></div>
+      <div><strong>${designerCount}</strong><span>studios</span></div>
     </div>
   </div></section>`;
   const body = html`
   ${logout ? html`<div class="alert alert-info">You have been logged out. See you soon!</div>` : ""}
   <div class="page-head"><div><p class="eyebrow">Explore by space</p><h2>Categories</h2></div></div>
-  <div class="chips">${categories.map((c) => html`<span class="chip">${c.name}</span>`)}</div>
+  <div class="chips">${categories.map((c) => html`<a class="chip" href="/projects?category=${c.id}">${c.name}</a>`)}</div>
 
   <div class="page-head" style="margin-top:44px">
     <div><p class="eyebrow">Most viewed</p><h2>Featured projects</h2></div>
+    <a class="btn btn-ghost" href="/projects">View all projects &rarr;</a>
   </div>
   ${projectGrid(featured, null, "No projects have been published yet.")}
+
+  ${designers.length
+    ? html`<div class="page-head" style="margin-top:44px">
+        <div><p class="eyebrow">Studios</p><h2>Meet our designers</h2></div>
+        <a class="btn btn-ghost" href="/designers">All designers &rarr;</a>
+      </div>${designerCards(designers)}`
+    : ""}
   `;
   return page(ctx, `${TITLE} - beautiful spaces, thoughtfully designed`, body, { hero });
 }
@@ -49,12 +84,98 @@ export function loginPage(ctx: PageCtx, reason: string | null, username = ""): H
   </div></div>`, { bare: true });
 }
 
+export interface SearchView {
+  q: string;
+  category: number | null;
+  status: string;
+  sort: string;
+}
+
+export function searchPage(ctx: PageCtx, result: ProjectPage, view: SearchView, categories: Category[]): H {
+  const qs = (page: number) =>
+    "/projects?" + new URLSearchParams({ q: view.q, category: view.category ? String(view.category) : "", status: view.status, sort: view.sort, page: String(page) }).toString();
+  const sorts = [["newest", "Newest"], ["title", "Title A-Z"]];
+  return page(ctx, `Search projects · ${TITLE}`, html`
+  <div class="page-head"><div><p class="eyebrow">Interior design projects</p><h1>Find inspiration</h1>
+    <p class="muted">Search by style, room, location or designer. Every word you type must match.</p></div></div>
+  <form class="filters" action="/projects" method="get" role="search">
+    <div class="field grow"><label for="q">Keywords</label><input type="search" id="q" name="q" value="${view.q}" placeholder="e.g. japandi kitchen, minimalist, Punggol"></div>
+    ${filterSelect("category", "Category", categories.map((c) => ({ value: String(c.id), label: c.name })), view.category ? String(view.category) : "", "All categories")}
+    ${filterSelect("status", "Project type", PROJECT_STATUSES.map((s) => ({ value: s, label: `${PROJECT_STATUS_LABELS[s]} projects` })), view.status, "Current & past")}
+    <div class="field"><label for="sort">Sort by</label><select id="sort" name="sort">${sorts.map(([v, l]) => html`<option value="${v}"${view.sort === v ? html` selected` : ""}>${l}</option>`)}</select></div>
+    <button class="btn btn-dark" type="submit">Search</button>
+  </form>
+  <p class="muted small">${result.total} project(s) found${view.q ? ` for "${view.q}"` : ""}</p>
+  ${result.items.length
+    ? projectGrid(result.items)
+    : html`<div class="panel empty"><h3>No projects match your search</h3><p>Try fewer or different keywords, or clear the filters.</p><a class="btn btn-ghost" href="/projects">Clear search</a></div>`}
+  ${result.totalPages > 1
+    ? html`<nav class="pagination" aria-label="Pages">
+        ${result.page > 0 ? html`<a href="${qs(result.page - 1)}">&lsaquo; Previous</a>` : html`<span class="disabled">&lsaquo; Previous</span>`}
+        <span class="current">Page ${result.page + 1} of ${result.totalPages}</span>
+        ${result.page + 1 < result.totalPages ? html`<a href="${qs(result.page + 1)}">Next &rsaquo;</a>` : html`<span class="disabled">Next &rsaquo;</span>`}
+      </nav>`
+    : ""}`);
+}
+
+export function designersPage(ctx: PageCtx, designers: DesignerCard[], q: string): H {
+  return page(ctx, `Designers · ${TITLE}`, html`
+  <div class="page-head">
+    <div><p class="eyebrow">Studios</p><h1>Our interior designers</h1><p class="muted">Open a designer to see their company, portfolio and availability calendar.</p></div>
+    <form class="row" action="/designers" method="get"><input type="search" name="q" value="${q}" placeholder="Search by designer or company" style="min-width:260px"><button class="btn btn-dark" type="submit">Search</button></form>
+  </div>
+  ${designers.length ? designerCards(designers) : html`<div class="panel empty">No designers found.</div>`}`);
+}
+
+export interface DesignerDetailView {
+  designer: User;
+  company: Company | null;
+  calendar: CalendarMonth;
+}
+
+export function designerPage(ctx: PageCtx, v: DesignerDetailView): H {
+  const name = v.company?.name ?? v.designer.fullName;
+  const c = v.company;
+  const row = (label: string, value: unknown) => (value === null || value === undefined || value === "" ? "" : html`<dt>${label}</dt><dd>${String(value)}</dd>`);
+  return page(ctx, `${name} · ${TITLE}`, html`
+  <p class="small"><a href="/designers">&larr; All designers</a></p>
+  <div class="page-head"><div class="row" style="gap:18px">
+    <div class="monogram" style="width:72px;height:72px;font-size:2.2rem">${name.slice(0, 1)}</div>
+    <div><p class="eyebrow">Interior designer</p><h1 style="margin:0">${name}</h1>
+      <div class="row small"><span>${v.designer.fullName}</span></div></div>
+  </div></div>
+  <div class="split">
+    <div class="stack">
+      <div>
+        <h2>Availability</h2>
+        <p class="muted small">Green slots are open for consultations and site visits. Use them to plan when to start your renovation.</p>
+        ${calendar(v.calendar, `/designers/${v.designer.id}`)}
+      </div>
+    </div>
+    <aside class="panel sticky">
+      <h3>Company information</h3>
+      ${c
+        ? html`${c.description ? html`<p class="prose small">${c.description}</p>` : ""}
+          <dl class="kv">
+            ${row("Specialties", c.specialties)}
+            ${row("Experience", c.yearsInBusiness !== null ? `${c.yearsInBusiness} years` : null)}
+            ${row("Registration no.", c.registrationNumber)}
+            ${row("Address", c.address)}
+            ${row("Phone", c.phone)}
+            ${c.email ? html`<dt>Email</dt><dd><a href="mailto:${c.email}">${c.email}</a></dd>` : ""}
+            ${c.website ? html`<dt>Website</dt><dd><a href="${c.website}" rel="noopener nofollow" target="_blank">${c.website}</a></dd>` : ""}
+          </dl>`
+        : html`<div class="muted">This designer has not added company information yet.</div>`}
+    </aside>
+  </div>`);
+}
+
 export function errorPage(ctx: PageCtx, status: number): H {
   const heading = status === 404 ? "We couldn't find that page" : status === 403 ? "You don't have access to this page" : status === 400 ? "That request didn't look right" : "Something went wrong on our side";
   return page(ctx, `${status} · ${TITLE}`, html`<div class="error-page">
     <div class="code">${status}</div>
     <h1>${heading}</h1>
     <p class="muted">The link may be broken, or the item may have been removed.</p>
-    <div class="row" style="justify-content:center"><a class="btn btn-dark" href="/">Go to the homepage</a></div>
+    <div class="row" style="justify-content:center"><a class="btn btn-dark" href="/">Go to the homepage</a><a class="btn btn-ghost" href="/projects">Browse projects</a></div>
   </div>`);
 }

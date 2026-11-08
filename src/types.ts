@@ -18,6 +18,9 @@ export const PROJECT_STATUSES = ["CURRENT", "PAST"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = { CURRENT: "Current", PAST: "Past" };
 
+export const SLOT_STATUSES = ["AVAILABLE", "BOOKED"] as const;
+export type SlotStatus = (typeof SLOT_STATUSES)[number];
+
 export function isOneOf<T extends string>(list: readonly T[], value: unknown): value is T {
   return typeof value === "string" && (list as readonly string[]).includes(value);
 }
@@ -39,6 +42,21 @@ export interface User {
 
 /** The logged-in user as seen by pages and route guards. */
 export type SessionUser = Pick<User, "id" | "username" | "fullName" | "role" | "email">;
+
+export interface Company {
+  id: number;
+  designerId: number;
+  name: string;
+  registrationNumber: string | null;
+  description: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  yearsInBusiness: number | null;
+  specialties: string | null;
+  updatedAt: Date;
+}
 
 export interface Category {
   id: number;
@@ -70,4 +88,14 @@ export interface Project {
   shortlistCount: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface Slot {
+  id: number;
+  designerId: number;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  endTime: string; // HH:MM
+  status: SlotStatus;
+  note: string | null;
 }

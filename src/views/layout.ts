@@ -13,8 +13,13 @@ export interface PageCtx {
 
 const WORKSPACE_LINKS: Record<Role, [string, string][]> = {
   CUSTOMER: [
+    ["/projects", "Search projects"],
+    ["/designers", "Designers & calendars"],
   ],
   INTERIOR_DESIGNER: [
+    ["/designer/dashboard", "Dashboard"],
+    ["/designer/company", "Company"],
+    ["/designer/availability", "Availability"],
   ],
   USER_ADMIN: [
   ],
@@ -38,7 +43,8 @@ function header(ctx: PageCtx): H {
   <div class="container header-inner">
     <a class="brand" href="/"><span class="brand-mark">P</span><span class="brand-text">Prestige<small>Interior Design</small></span></a>
     <nav class="main-nav" aria-label="Main">
-      <a href="/" class="${active(ctx.path, "/", true)}">Home</a>
+      <a href="/projects" class="${active(ctx.path, "/projects")}">Projects</a>
+      <a href="/designers" class="${active(ctx.path, "/designers")}">Designers</a>
     </nav>
     ${u
       ? html`<details class="account-menu">
@@ -73,7 +79,7 @@ export function flashMessages(flash: Flash | null): H {
 function footer(): H {
   return html`<footer class="site-footer"><div class="container">
   <div><strong style="color:#fff;font-family:var(--serif);font-size:1.2rem">Prestige Interior Design</strong><br>Beautiful spaces, thoughtfully designed.</div>
-  <div><a href="/">Home</a> &middot; <a href="/login">Log in</a></div>
+  <div><a href="/projects">Projects</a> &middot; <a href="/designers">Designers</a></div>
   <div>&copy; ${year()} Prestige Interior Design</div>
 </div></footer>`;
 }

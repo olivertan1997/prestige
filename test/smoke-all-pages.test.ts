@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { addDays, todayLocal } from "../src/lib/dates";
 import { seedDemoData } from "../src/services/demo";
 import { findUserByUsername } from "../src/services/users";
 import type { User } from "../src/types";
@@ -23,20 +24,28 @@ describe("Smoke Test 1: Demo data loads and every page of the website renders", 
       expect(res.status, path).toBe(200);
     }
   };
+  const nextMonth = addDays(todayLocal(), 32).slice(0, 7);
 
   it("Demo data creates accounts, projects, ratings and availability", async () => {
     for (const u of ["admin", "platform", "sophia", "marcus", "emily", "daniel"]) expect(await findUserByUsername(env.db, u)).not.toBeNull();
     expect(await seedDemoData(env.db, "DemoPass123!")).toBe(false); // runs only once
     const html = await (await browser(env).get("/")).text();
     expect(html).toContain("Featured projects");
+    expect(html).toContain("Atelier Tan Interiors");
   });
 
   it("Public pages render for visitors", async () => {
-    await ok(null, ["/", "/login", "/healthz"]);
+    await ok(null, ["/", "/login", "/projects", "/projects?q=japandi&sort=views", "/projects?status=PAST&sort=title",
+      "/designers", "/designers?q=atelier", `/designers/${designer.id}`, `/designers/${designer.id}?month=${nextMonth}`, "/healthz"]);
   });
 
   it("Customer pages render", async () => {
-    await ok(customer, ["/"]);
+    await ok(customer, ["/", "/projects", "/designers"]);
+  });
+
+  it("Interior Designer pages render", async () => {
+    await ok(designer, ["/designer/dashboard", "/designer/company",
+      "/designer/availability", `/designer/availability?month=${nextMonth}`]);
   });
 
   it("Unknown pages show the 404 page and forms from other sites are refused", async () => {
