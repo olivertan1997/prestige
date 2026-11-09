@@ -12,6 +12,7 @@ import {
   deleteProject,
   getOwnedProject,
   listDesignerProjects,
+  ratingForDesigner,
   statsForDesigner,
   updateProject,
   validateProject,
@@ -28,8 +29,8 @@ export const designerRoutes = new Hono<AppEnv>();
 designerRoutes.get("/dashboard", async (c) => {
   const db = c.get("db");
   const id = c.get("user")!.id;
-  const [stats, company, slots] = await Promise.all([statsForDesigner(db, id), getCompany(db, id), upcomingSlots(db, id)]);
-  return c.html(dashboardPage(pageCtx(c), { stats, hasCompany: !!company, upcomingSlots: slots.length }));
+  const [stats, rating, company, slots] = await Promise.all([statsForDesigner(db, id), ratingForDesigner(db, id), getCompany(db, id), upcomingSlots(db, id)]);
+  return c.html(dashboardPage(pageCtx(c), { stats, rating, hasCompany: !!company, upcomingSlots: slots.length }));
 });
 designerRoutes.get("/", (c) => c.redirect("/designer/dashboard"));
 

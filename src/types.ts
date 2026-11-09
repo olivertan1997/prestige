@@ -10,6 +10,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 /** Roles a visitor may choose when signing up. Staff accounts are created by a User Admin. */
 export const SELF_SERVICE_ROLES: Role[] = ["CUSTOMER", "INTERIOR_DESIGNER"];
+export const STAFF_ROLES: Role[] = ["USER_ADMIN", "PLATFORM_MANAGEMENT"];
 
 /** ACTIVE = normal; DISABLED = suspended by a User Admin (data kept); BANNED = removed by Platform Management. */
 export const ACCOUNT_STATUSES = ["ACTIVE", "DISABLED", "BANNED"] as const;
@@ -35,6 +36,14 @@ export const ISSUE_TYPE_LABELS: Record<IssueType, string> = {
   ACCOUNT: "Account or login problem",
   SPAM: "Spam or suspicious user",
   OTHER: "Other",
+};
+
+export const PERIODS = ["DAILY", "WEEKLY", "MONTHLY"] as const;
+export type Period = (typeof PERIODS)[number];
+export const PERIOD_INFO: Record<Period, { label: string; current: string; periods: number }> = {
+  DAILY: { label: "Daily", current: "Today", periods: 7 },
+  WEEKLY: { label: "Weekly", current: "This week", periods: 8 },
+  MONTHLY: { label: "Monthly", current: "This month", periods: 12 },
 };
 
 export function isOneOf<T extends string>(list: readonly T[], value: unknown): value is T {
@@ -113,6 +122,23 @@ export interface Project {
   shortlistCount: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface RatingSummary {
+  average: number | null;
+  count: number;
+}
+
+export interface Rating {
+  id: number;
+  customerId: number;
+  customerName: string;
+  projectId: number;
+  projectTitle: string;
+  score: number;
+  comment: string | null;
+  visible: boolean;
+  createdAt: Date;
 }
 
 export interface Slot {

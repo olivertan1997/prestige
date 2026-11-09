@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createUser } from "../src/services/users";
+import { banUser, createUser } from "../src/services/users";
 import type { User } from "../src/types";
 import { PASSWORD, asUser, ids, newUser, next, useTestDb } from "./support";
 
@@ -48,5 +48,16 @@ describe("Feature 8: Search users by name to quickly find a specific account", (
   it("A name with no matches returns an empty list", async () => {
     const designer = await newUser(env, "INTERIOR_DESIGNER");
     expect(await listed(designer, "/designer/users?q=zzzz-no-such-person")).toEqual([]);
+  });
+
+  it("User Admins can search too; the designer directory hides banned accounts", async () => {
+    const designer = await newUser(env, "INTERIOR_DESIGNER");
+    const admin = await newUser(env, "USER_ADMIN");
+    const platform = await newUser(env, "PLATFORM_MANAGEMENT");
+    const banned = await newUser(env, "CUSTOMER", "Cornelius Spamalot");
+    await banUser(env.db, platform.id, banned.id, "Spam");
+    expect(await listed(designer, "/designer/users?q=spamalot")).toEqual([]);
+    expect(await listed(admin, "/admin/users?q=spamalot")).toEqual([banned.id]);
+    expect((await (await asUser(env, await newUser(env, "CUSTOMER"))).get("/designer/users")).status).toBe(403);
   });
 });

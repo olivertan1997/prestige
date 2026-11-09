@@ -16,8 +16,12 @@ import {
   getProjectForViewer,
   isFavourite,
   listDesignerProjects,
+  myRating,
+  ratingForDesigner,
+  ratingForProject,
   recordView,
   searchProjects,
+  visibleRatings,
 } from "../services/projects";
 import { MIN_PASSWORD_LENGTH, authenticate, registerUser } from "../services/users";
 import { SELF_SERVICE_ROLES, isOneOf } from "../types";
@@ -44,7 +48,7 @@ publicRoutes.get("/", async (c) => {
 
 publicRoutes.get("/login", (c) => {
   if (c.get("user")) return c.redirect("/dashboard");
-  const reason = ["error", "disabled", "expired"].find((k) => c.req.query(k) !== undefined) ?? null;
+  const reason = ["error", "banned", "disabled", "expired"].find((k) => c.req.query(k) !== undefined) ?? null;
   return c.html(loginPage(pageCtx(c), reason));
 });
 
@@ -72,7 +76,7 @@ publicRoutes.post("/logout", async (c) => {
 /** Sends each role to its own workspace. */
 publicRoutes.get("/dashboard", (c) => {
   const role = c.get("user")!.role;
-  const target = { USER_ADMIN: "/admin/users", PLATFORM_MANAGEMENT: "/issues/manage", INTERIOR_DESIGNER: "/designer/dashboard", CUSTOMER: "/projects" }[role];
+  const target = { USER_ADMIN: "/admin/users", PLATFORM_MANAGEMENT: "/platform/reports", INTERIOR_DESIGNER: "/designer/dashboard", CUSTOMER: "/projects" }[role];
   return c.redirect(target);
 });
 
@@ -154,12 +158,16 @@ publicRoutes.get("/projects/:id", async (c) => {
     project = { ...project, viewCount: project.viewCount + 1 };
   }
   const isCustomer = user?.role === "CUSTOMER";
-  const [company, currentFavourites, fav] = await Promise.all([
+  const [company, rating, designerRating, reviews, currentFavourites, fav, mine] = await Promise.all([
     getCompany(db, project.designerId),
+    ratingForProject(db, id),
+    ratingForDesigner(db, project.designerId),
+    visibleRatings(db, id),
     currentFavouriteCount(db, id),
     isCustomer ? isFavourite(db, user!.id, id) : Promise.resolve(false),
+    isCustomer ? myRating(db, user!.id, id) : Promise.resolve(null),
   ]);
-  return c.html(projectPage(pageCtx(c), { project, company, currentFavourites, isFavourite: fav }));
+  return c.html(projectPage(pageCtx(c), { project, company, rating, designerRating, reviews, currentFavourites, isFavourite: fav, myRating: mine }));
 });
 
 // -------------------------------------------------------------------- designers
@@ -174,10 +182,11 @@ publicRoutes.get("/designers/:id", async (c) => {
   const id = intParam(c.req.param("id"));
   if (id === null) return c.notFound();
   const designer = await getActiveDesigner(db, id);
-  const [company, projects, calendar] = await Promise.all([
+  const [company, projects, rating, calendar] = await Promise.all([
     getCompany(db, id),
     listDesignerProjects(db, id),
+    ratingForDesigner(db, id),
     buildCalendar(db, id, parseMonth(c.req.query("month"))),
   ]);
-  return c.html(designerPage(pageCtx(c), { designer, company, projects, calendar }));
+  return c.html(designerPage(pageCtx(c), { designer, company, projects, rating, calendar }));
 });

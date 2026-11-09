@@ -1,11 +1,24 @@
 import { html } from "hono/html";
 import { fmtDate } from "../lib/dates";
 import type { CalendarMonth } from "../services/availability";
-import { PROJECT_STATUS_LABELS, type Project } from "../types";
+import { PROJECT_STATUS_LABELS, type Project, type RatingSummary } from "../types";
 import type { H } from "./layout";
 
 export const money = (n: number | null | undefined) =>
   n === null || n === undefined ? "-" : "$" + Math.round(n).toLocaleString("en-US");
+
+export const avgText = (r: RatingSummary) => (r.count > 0 && r.average !== null ? r.average.toFixed(1) : "-");
+export const avgStars = (r: RatingSummary) => (r.count > 0 && r.average !== null ? Math.round(r.average) : 0);
+
+export function stars(n: number): H {
+  return html`<span class="stars" aria-label="${n} out of 5 stars">${[1, 2, 3, 4, 5].map(
+    (i) => html`<span class="${i <= n ? "on" : ""}">&#9733;</span>`,
+  )}</span>`;
+}
+
+export function ratingLine(r: RatingSummary, empty = "No ratings yet"): H {
+  return html`${stars(avgStars(r))} <span class="muted">${r.count > 0 ? `${avgText(r)} (${r.count})` : empty}</span>`;
+}
 
 export function badge(kind: string, text: string): H {
   return html`<span class="badge badge-${kind.toLowerCase()}">${text}</span>`;

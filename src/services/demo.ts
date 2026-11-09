@@ -112,6 +112,14 @@ export async function seedDemoData(db: Db, password: string): Promise<boolean> {
   await favourite(daniel.id, p5.id, 3);
   await favourite(daniel.id, p7.id, 1);
 
+  const rating = (customerId: number, projectId: number, score: number, comment: string) =>
+    db.query(`insert into ratings (customer_id, project_id, score, comment) values ($1::int, $2::int, $3::int, $4) on conflict do nothing`,
+      [customerId, projectId, score, comment]);
+  await rating(emily.id, p1.id, 5, "Sophia's team was incredibly detailed - our flat feels twice as big.");
+  await rating(daniel.id, p1.id, 4, "Beautiful result, small delays with the carpentry.");
+  await rating(daniel.id, p5.id, 5, "Exactly the luxury feel we wanted.");
+  await rating(emily.id, p4.id, 4, "Smart storage ideas throughout.");
+
   // Availability for the next six weeks (bulk insert per designer).
   const availability = async (designerId: number, weekdays: number[], times: [string, string][]) => {
     const dates: string[] = [], starts: string[] = [], ends: string[] = [], statuses: string[] = [];

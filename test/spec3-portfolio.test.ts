@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BusinessError } from "../src/lib/errors";
-import { addFavourite, createProject, currentFavouriteCount, getProject, listDesignerProjects, updateProject } from "../src/services/projects";
+import { addFavourite, createProject, currentFavouriteCount, getProject, listDesignerProjects, rateProject, updateProject } from "../src/services/projects";
 import { asUser, browser, location, newCategory, newProject, newUser, useTestDb } from "./support";
 
 describe("Spec 3: Interior Designers manage a portfolio of current and past IDPs", () => {
@@ -44,11 +44,12 @@ describe("Spec 3: Interior Designers manage a portfolio of current and past IDPs
     expect(updated?.status).toBe("PAST");
   });
 
-  it("A designer can delete a project together with its favourites", async () => {
+  it("A designer can delete a project together with its favourites and ratings", async () => {
     const designer = await newUser(env, "INTERIOR_DESIGNER");
     const customer = await newUser(env, "CUSTOMER");
     const project = await newProject(env, designer, "To be deleted");
     await addFavourite(env.db, customer.id, project.id);
+    await rateProject(env.db, customer.id, project.id, 4, "Nice");
     const res = await (await asUser(env, designer)).post(`/designer/projects/${project.id}/delete`);
     expect(location(res)).toBe("/designer/projects");
     expect(await getProject(env.db, project.id)).toBeNull();

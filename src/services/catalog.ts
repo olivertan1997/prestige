@@ -1,4 +1,4 @@
-// Spec 2 (company information) and IDP categories.
+// Spec 2 (company information) and spec 6 (IDP categories).
 import { one, type Db } from "../db";
 import { BusinessError, NotFoundError, clean } from "../lib/errors";
 import type { Category, Company } from "../types";
@@ -120,6 +120,43 @@ export async function createCategory(db: Db, name: string, description?: string 
     [value, clean(description)],
   );
   return created!;
+}
+
+export async function updateCategory(db: Db, id: number, name: string, description?: string | null): Promise<Category> {
+  await getCategory(db, id);
+  const value = requireName(name);
+  if (await one(db, `select 1 from categories where lower(name) = lower($1) and id <> $2::int`, [value, id])) {
+    throw new BusinessError(`A category called '${value}' already exists.`);
+  }
+  const updated = await one<Category>(
+    db,
+    `update categories set name = $2, description = $3 where id = $1::int returning ${CATEGORY_COLS}`,
+    [id, value, clean(description)],
+  );
+  return updated!;
+}
+
+/** Inactive categories are hidden from new projects and from the search filter. */
+export async function toggleCategory(db: Db, id: number): Promise<Category> {
+  await getCategory(db, id);
+  const updated = await one<Category>(db, `update categories set active = not active where id = $1::int returning ${CATEGORY_COLS}`, [id]);
+  return updated!;
+}
+
+export async function deleteCategory(db: Db, id: number): Promise<void> {
+  const category = await getCategory(db, id);
+  const used = await one<{ count: number }>(db, `select count(*)::int as count from design_projects where category_id = $1::int`, [id]);
+  if (used && used.count > 0) {
+    throw new BusinessError(`'${category.name}' is used by ${used.count} project(s). Deactivate it instead of deleting it.`);
+  }
+  await db.query(`delete from categories where id = $1::int`, [id]);
+}
+
+export async function categoryUsage(db: Db): Promise<Map<number, number>> {
+  const rows = await db.query<{ id: number; count: number }>(
+    `select category_id as id, count(*)::int as count from design_projects where category_id is not null group by category_id`,
+  );
+  return new Map(rows.map((r) => [r.id, r.count]));
 }
 
 export async function ensureDefaultCategories(db: Db): Promise<void> {

@@ -10,10 +10,13 @@ import {
   type Category,
   type Company,
   type Project,
+  type Rating,
+  type RatingSummary,
   type Role,
   type User,
 } from "../types";
 import {
+  avgText,
   calendar,
   filterSelect,
   globalError,
@@ -21,6 +24,8 @@ import {
   money,
   placeholderClass,
   projectGrid,
+  ratingLine,
+  stars,
   type FormState,
 } from "./components";
 import { page, type H, type PageCtx } from "./layout";
@@ -35,7 +40,7 @@ function designerCards(designers: DesignerCard[]): H {
         <div><h3 style="margin:0">${d.companyName ?? d.fullName}</h3><span class="muted small">${d.fullName}</span></div>
       </div>
       <p class="muted small" style="margin:0">${d.specialties ?? (d.description ? d.description.slice(0, 140) : "Interior design studio")}</p>
-      <div class="row small" style="margin-top:auto"><span class="right muted">${d.projectCount} project(s)</span></div>
+      <div class="row small" style="margin-top:auto">${ratingLine(d.rating)}<span class="right muted">${d.projectCount} project(s)</span></div>
     </a>`,
   )}</div>`;
 }
@@ -84,6 +89,7 @@ export function homePage(ctx: PageCtx, featured: Project[], categories: Category
 export function loginPage(ctx: PageCtx, reason: string | null, username = ""): H {
   const messages: Record<string, H> = {
     error: html`<div class="alert alert-error">Incorrect username or password.</div>`,
+    banned: html`<div class="alert alert-error">This account has been banned by Platform Management.</div>`,
     disabled: html`<div class="alert alert-error">This account is disabled. Please contact a User Admin.</div>`,
     expired: html`<div class="alert alert-info">Please log in to continue. (Your session ended or your account was changed.)</div>`,
   };
@@ -161,8 +167,12 @@ export function searchPage(ctx: PageCtx, result: ProjectPage, view: SearchView, 
 export interface ProjectDetailView {
   project: Project;
   company: Company | null;
+  rating: RatingSummary;
+  designerRating: RatingSummary;
+  reviews: Rating[];
   currentFavourites: number;
   isFavourite: boolean;
+  myRating: Rating | null;
 }
 
 export function projectPage(ctx: PageCtx, v: ProjectDetailView): H {
@@ -179,6 +189,8 @@ export function projectPage(ctx: PageCtx, v: ProjectDetailView): H {
       <div style="margin-top:22px">
         <p class="eyebrow">${p.categoryName ?? "Uncategorised"} &middot; ${PROJECT_STATUS_LABELS[p.status]} project</p>
         <h1>${p.title}</h1>
+        <div class="row small">${stars(v.rating.count ? Math.round(v.rating.average ?? 0) : 0)}
+          <span class="muted">${v.rating.count ? `${avgText(v.rating)} from ${v.rating.count} rating(s)` : "Not rated yet"}</span></div>
       </div>
       <div class="facts">
         <div><span>Style</span><strong>${p.style ?? "-"}</strong></div>
@@ -190,6 +202,28 @@ export function projectPage(ctx: PageCtx, v: ProjectDetailView): H {
       </div>
       <h3>About this project</h3>
       <p class="prose">${p.description ?? "No description provided."}</p>
+
+      <hr class="soft">
+      <section id="reviews">
+        <h2>Ratings &amp; reviews</h2>
+        <p class="muted small">Ratings come from Prestige customers and give an alternative measure of the designer's work and service.</p>
+        ${isCustomer
+          ? html`<form class="panel" action="/customer/ratings/${p.id}" method="post" style="margin:16px 0">
+              <h3>${v.myRating ? "Update your rating" : "Rate this project"}</h3>
+              <div class="star-input" role="radiogroup" aria-label="Stars">${[5, 4, 3, 2, 1].map(
+                (i) => html`<input type="radio" name="score" id="star${i}" value="${i}"${v.myRating?.score === i ? html` checked` : ""} required><label for="star${i}" title="${i} star(s)">&#9733;</label>`,
+              )}</div>
+              <div class="field" style="margin-top:10px"><label for="comment">Review (optional)</label>
+                <textarea id="comment" name="comment" maxlength="1000" placeholder="What did you like? How was the service?">${v.myRating?.comment ?? ""}</textarea></div>
+              <div class="form-actions"><button class="btn btn-dark" type="submit">Submit rating</button></div>
+            </form>`
+          : ctx.user ? "" : html`<div class="panel" style="margin:16px 0"><a href="/login">Log in as a customer</a> to rate this project.</div>`}
+        ${v.reviews.length ? "" : html`<div class="muted">No reviews yet.</div>`}
+        ${v.reviews.map((r) => html`<div class="review">
+          <div class="row">${stars(r.score)}<strong>${r.customerName}</strong><span class="muted small right">${fmtDate(r.createdAt)}</span></div>
+          ${r.comment ? html`<p style="margin:6px 0 0">${r.comment}</p>` : ""}
+        </div>`)}
+      </section>
     </article>
 
     <aside class="stack sticky">
@@ -204,6 +238,7 @@ export function projectPage(ctx: PageCtx, v: ProjectDetailView): H {
         <p class="eyebrow">Designed by</p>
         <h3>${v.company?.name ?? p.designerName}</h3>
         ${v.company ? html`<p class="muted small">Lead designer: ${p.designerName}</p>` : ""}
+        <div class="row small" style="margin-bottom:10px">${ratingLine(v.designerRating)}</div>
         ${v.company?.specialties ? html`<p class="small">${v.company.specialties}</p>` : ""}
         <a class="btn btn-dark btn-block" href="/designers/${p.designerId}#calendar">View availability calendar</a>
       </div>
@@ -225,6 +260,7 @@ export interface DesignerDetailView {
   designer: User;
   company: Company | null;
   projects: Project[];
+  rating: RatingSummary;
   calendar: CalendarMonth;
 }
 
@@ -237,7 +273,7 @@ export function designerPage(ctx: PageCtx, v: DesignerDetailView): H {
   <div class="page-head"><div class="row" style="gap:18px">
     <div class="monogram" style="width:72px;height:72px;font-size:2.2rem">${name.slice(0, 1)}</div>
     <div><p class="eyebrow">Interior designer</p><h1 style="margin:0">${name}</h1>
-      <div class="row small"><span>${v.designer.fullName}</span></div></div>
+      <div class="row small"><span>${v.designer.fullName}</span>${ratingLine(v.rating)}</div></div>
   </div></div>
   <div class="split">
     <div class="stack">

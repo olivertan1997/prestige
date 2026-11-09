@@ -1,5 +1,5 @@
-// Spec 3 (portfolio), spec 4 + story 1 (search / view / save), spec 5 + story 7 (interest tracking)
-// and story 4 (favourites).
+// Spec 3 (portfolio), spec 4 + story 1 (search / view / save), spec 5 + story 7 (interest tracking),
+// story 4 (favourites) and story 5 (ratings).
 import { one, type Db } from "../db";
 import { isValidDate } from "../lib/dates";
 import { BusinessError, NotFoundError, clean, escapeLike } from "../lib/errors";
@@ -8,6 +8,8 @@ import {
   isOneOf,
   type Project,
   type ProjectStatus,
+  type Rating,
+  type RatingSummary,
   type SessionUser,
 } from "../types";
 import { requireUser } from "./users";
@@ -241,21 +243,25 @@ export interface ProjectStats {
   currentFavourites: number;
   views30: number;
   shortlists30: number;
+  rating: RatingSummary;
 }
 
 /** Spec 5 / story 7 - views and shortlist counts for each of a designer's projects. */
 export async function statsForDesigner(db: Db, designerId: number): Promise<ProjectStats[]> {
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
-  return db.query<ProjectStats>(
+  const rows = await db.query<Omit<ProjectStats, "rating"> & { ratingAverage: number | null; ratingCount: number }>(
     `select p.id, p.title, p.status, c.name as "categoryName", p.view_count as views, p.shortlist_count as shortlists,
             (select count(*)::int from favourites f where f.project_id = p.id) as "currentFavourites",
             (select count(*)::int from project_activities a where a.project_id = p.id and a.type = 'VIEW' and a.occurred_at >= $2::timestamptz) as views30,
-            (select count(*)::int from project_activities a where a.project_id = p.id and a.type = 'SHORTLIST' and a.occurred_at >= $2::timestamptz) as shortlists30
+            (select count(*)::int from project_activities a where a.project_id = p.id and a.type = 'SHORTLIST' and a.occurred_at >= $2::timestamptz) as shortlists30,
+            (select avg(r.score)::float8 from ratings r where r.project_id = p.id and r.visible) as "ratingAverage",
+            (select count(*)::int from ratings r where r.project_id = p.id and r.visible) as "ratingCount"
        from design_projects p left join categories c on c.id = p.category_id
       where p.designer_id = $1::int
       order by p.created_at desc, p.id desc`,
     [designerId, since],
   );
+  return rows.map(({ ratingAverage, ratingCount, ...rest }) => ({ ...rest, rating: { average: ratingAverage, count: ratingCount } }));
 }
 
 // ------------------------------------------------------------ favourites
@@ -314,4 +320,79 @@ export async function isFavourite(db: Db, customerId: number, projectId: number)
 
 export async function currentFavouriteCount(db: Db, projectId: number): Promise<number> {
   return (await one<{ count: number }>(db, `select count(*)::int as count from favourites where project_id = $1::int`, [projectId]))?.count ?? 0;
+}
+
+// --------------------------------------------------------------- ratings
+
+const RATING_SELECT = `
+  select r.id, r.customer_id as "customerId", u.full_name as "customerName", r.project_id as "projectId",
+         p.title as "projectTitle", r.score, r.comment, r.visible, r.created_at as "createdAt"
+    from ratings r join user_accounts u on u.id = r.customer_id join design_projects p on p.id = r.project_id`;
+
+/** Story 5 - a customer rates a project 1-5 stars; rating again updates their previous rating. */
+export async function rateProject(db: Db, customerId: number, projectId: number, score: number, comment?: string | null): Promise<Rating> {
+  if (!Number.isInteger(score) || score < 1 || score > 5) throw new BusinessError("Ratings must be between 1 and 5 stars.");
+  await requireCustomer(db, customerId, "rate projects");
+  await requireVisibleProject(db, projectId);
+  const text = clean(comment);
+  if (text && text.length > 1000) throw new BusinessError("Reviews can be at most 1000 characters.");
+  const row = await one<{ id: number }>(
+    db,
+    `insert into ratings (customer_id, project_id, score, comment) values ($1::int, $2::int, $3::int, $4)
+     on conflict (customer_id, project_id) do update set score = excluded.score, comment = excluded.comment, updated_at = now()
+     returning id`,
+    [customerId, projectId, score, text],
+  );
+  return (await one<Rating>(db, `${RATING_SELECT} where r.id = $1::int`, [row!.id]))!;
+}
+
+async function summary(db: Db, where: string, params: unknown[]): Promise<RatingSummary> {
+  const row = await one<RatingSummary>(
+    db,
+    `select avg(r.score)::float8 as average, count(*)::int as count from ratings r join design_projects p on p.id = r.project_id where r.visible ${where}`,
+    params,
+  );
+  return row ?? { average: null, count: 0 };
+}
+
+export const ratingForProject = (db: Db, projectId: number) => summary(db, `and r.project_id = $1::int`, [projectId]);
+export const ratingForDesigner = (db: Db, designerId: number) => summary(db, `and p.designer_id = $1::int`, [designerId]);
+export const ratingForPlatform = (db: Db) => summary(db, ``, []);
+
+export function visibleRatings(db: Db, projectId: number): Promise<Rating[]> {
+  return db.query<Rating>(`${RATING_SELECT} where r.project_id = $1::int and r.visible order by r.created_at desc, r.id desc`, [projectId]);
+}
+
+export function myRating(db: Db, customerId: number, projectId: number): Promise<Rating | null> {
+  return one<Rating>(db, `${RATING_SELECT} where r.customer_id = $1::int and r.project_id = $2::int`, [customerId, projectId]);
+}
+
+export function allRatings(db: Db): Promise<Rating[]> {
+  return db.query<Rating>(`${RATING_SELECT} order by r.created_at desc, r.id desc`);
+}
+
+export async function setRatingVisible(db: Db, ratingId: number, visible: boolean): Promise<void> {
+  const rows = await db.query(`update ratings set visible = $2::boolean where id = $1::int returning id`, [ratingId, visible]);
+  if (!rows.length) throw new NotFoundError("Rating not found");
+}
+
+export async function deleteRating(db: Db, ratingId: number): Promise<void> {
+  const rows = await db.query(`delete from ratings where id = $1::int returning id`, [ratingId]);
+  if (!rows.length) throw new NotFoundError("Rating not found");
+}
+
+export interface RankedProject {
+  id: number;
+  title: string;
+  count: number;
+  average: number | null;
+}
+
+export function topRatedProjects(db: Db, limit = 5): Promise<RankedProject[]> {
+  return db.query<RankedProject>(
+    `select p.id, p.title, count(*)::int as count, avg(r.score)::float8 as average
+       from ratings r join design_projects p on p.id = r.project_id
+      where r.visible group by p.id, p.title order by average desc, count desc, p.id limit $1::int`,
+    [limit],
+  );
 }

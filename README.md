@@ -36,10 +36,13 @@ Free-plan limits: 100,000 requests a day, 100,000 database queries a day, and 10
 | Spec 3 - ID portfolio (current and past) | `src/services/projects.ts`, `src/routes/designer.ts` | `test/spec3-portfolio.test.ts` |
 | Spec 4 - customer search, view, save | `src/routes/public.ts`, `src/services/projects.ts` | `test/spec4-search-view-save.test.ts` |
 | Spec 5 - views and shortlist tracking | `recordView`, `statsForDesigner` in `projects.ts` | `test/spec5-interest-tracking.test.ts` |
+| Spec 6 - categories and reports | `src/services/catalog.ts`, `src/services/reports.ts` | `test/spec6-categories-reports.test.ts` |
 | Story 1 - keyword search | `searchProjects` | `test/feature01-keyword-search.test.ts` |
 | Story 2 - availability calendar | `src/services/availability.ts` | `test/feature02-availability-calendar.test.ts` |
 | Story 3 - report issues (Pending, Reviewed, Rectified) | `src/services/issues.ts` | `test/feature03-report-issues.test.ts` |
 | Story 4 - favourites | `addFavourite` / `removeFavourite` | `test/feature04-favourites.test.ts` |
+| Story 5 - rating system | `rateProject`, `/platform/ratings` | `test/feature05-rating-system.test.ts` |
+| Story 6 - ban users | `banUser` | `test/feature06-ban-users.test.ts` |
 | Story 7 - shortlist counts | designer dashboard | `test/feature07-shortlist-count.test.ts` |
 | Story 8 - search users by name | `searchUsers`, `/designer/users`, `/admin/users` | `test/feature08-search-users-by-name.test.ts` |
 | Story 9 - filter users by role | same as above | `test/feature09-filter-users-by-role.test.ts` |

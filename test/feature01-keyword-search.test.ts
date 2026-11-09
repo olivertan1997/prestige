@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { searchProjects } from "../src/services/projects";
+import { banUser } from "../src/services/users";
 import { browser, newCategory, newProject, newUser, useTestDb } from "./support";
 
 describe("Feature 1: Customer searches interior design projects using keywords", () => {
@@ -42,5 +43,14 @@ describe("Feature 1: Customer searches interior design projects using keywords",
     const past = await newProject(env, designer, "Pelican Past", { category: b, status: "PAST" });
     expect((await searchProjects(env.db, { q: "pelican", categoryId: a.id })).items.map((p) => p.id)).toEqual([current.id]);
     expect((await searchProjects(env.db, { q: "pelican", status: "PAST" })).items.map((p) => p.id)).toEqual([past.id]);
+  });
+
+  it("Projects of banned designers do not appear in search results", async () => {
+    const designer = await newUser(env, "INTERIOR_DESIGNER");
+    const platform = await newUser(env, "PLATFORM_MANAGEMENT");
+    const project = await newProject(env, designer, "Flamingo Spam Listing");
+    expect(await search("flamingo")).toContain(project.id);
+    await banUser(env.db, platform.id, designer.id, "Spam");
+    expect(await search("flamingo")).not.toContain(project.id);
   });
 });

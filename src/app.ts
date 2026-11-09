@@ -10,6 +10,7 @@ import { SESSION_COOKIE, loadSessionUser } from "./lib/sessions";
 import { accountRoutes, customerRoutes, issueManagementRoutes } from "./routes/account";
 import { adminRoutes } from "./routes/admin";
 import { designerRoutes } from "./routes/designer";
+import { platformRoutes } from "./routes/platform";
 import { publicRoutes } from "./routes/public";
 import { errorPage } from "./views/public";
 
@@ -88,6 +89,7 @@ export function createApp(deps: AppDeps) {
   app.route("/customer", customerRoutes);
   app.route("/designer", designerRoutes);
   app.route("/admin", adminRoutes);
+  app.route("/platform", platformRoutes);
 
   app.notFound((c) => c.html(errorPage(pageCtx(c), 404), 404));
 

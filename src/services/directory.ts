@@ -1,7 +1,7 @@
 // Public list of active Interior Designers and their companies.
 import { one, type Db } from "../db";
 import { NotFoundError, clean, escapeLike } from "../lib/errors";
-import type { User } from "../types";
+import type { RatingSummary, User } from "../types";
 import { getUser } from "./users";
 
 export interface DesignerCard {
@@ -11,6 +11,7 @@ export interface DesignerCard {
   specialties: string | null;
   description: string | null;
   projectCount: number;
+  rating: RatingSummary;
 }
 
 export async function listDesigners(db: Db, q?: string | null, limit = 100): Promise<DesignerCard[]> {
@@ -21,15 +22,20 @@ export async function listDesigners(db: Db, q?: string | null, limit = 100): Pro
     params.push(`%${escapeLike(needle.toLowerCase())}%`);
     filter = `and (lower(u.full_name) like $2 escape '\\' or lower(coalesce(c.name, '')) like $2 escape '\\')`;
   }
-  return db.query<DesignerCard>(
+  const rows = await db.query<Omit<DesignerCard, "rating"> & { ratingAverage: number | null; ratingCount: number }>(
     `select u.id, u.full_name as "fullName", c.name as "companyName", c.specialties, c.description,
-            (select count(*)::int from design_projects p where p.designer_id = u.id) as "projectCount"
+            (select count(*)::int from design_projects p where p.designer_id = u.id) as "projectCount",
+            (select avg(r.score)::float8 from ratings r join design_projects p on p.id = r.project_id
+              where p.designer_id = u.id and r.visible) as "ratingAverage",
+            (select count(*)::int from ratings r join design_projects p on p.id = r.project_id
+              where p.designer_id = u.id and r.visible) as "ratingCount"
        from user_accounts u left join companies c on c.designer_id = u.id
       where u.role = 'INTERIOR_DESIGNER' and u.status = 'ACTIVE' ${filter}
       order by lower(coalesce(c.name, u.full_name)), u.id
       limit $1::int`,
     params,
   );
+  return rows.map(({ ratingAverage, ratingCount, ...rest }) => ({ ...rest, rating: { average: ratingAverage, count: ratingCount } }));
 }
 
 export async function getActiveDesigner(db: Db, id: number): Promise<User> {

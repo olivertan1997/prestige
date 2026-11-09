@@ -4,7 +4,7 @@ import { pageCtx } from "../lib/context";
 import { BusinessError, clean } from "../lib/errors";
 import { backPath, intParam, readForm, setFlash, type Ctx } from "../lib/http";
 import { issueCounts, listIssues, myIssues, reportIssue, updateIssueStatus, validateIssue } from "../services/issues";
-import { addFavourite, listFavourites, removeFavourite } from "../services/projects";
+import { addFavourite, listFavourites, rateProject, removeFavourite } from "../services/projects";
 import { MIN_PASSWORD_LENGTH, changePassword, requireUser, updateOwnProfile } from "../services/users";
 import { ISSUE_STATUSES, ISSUE_STATUS_LABELS, isOneOf, type User } from "../types";
 import { favouritesPage, manageIssuesPage, myIssuesPage, profilePage } from "../views/account";
@@ -102,7 +102,7 @@ issueManagementRoutes.post("/:id/status", async (c) => {
   return c.redirect(backPath(c, "/issues/manage"));
 });
 
-// ------------------------------------------------------------------- customer actions (story 4)
+// -------------------------------------------------------------- customer actions (stories 4 + 5)
 
 export const customerRoutes = new Hono<AppEnv>();
 
@@ -128,4 +128,14 @@ customerRoutes.post("/favourites/:projectId/remove", async (c) => {
   await removeFavourite(c.get("db"), c.get("user")!.id, projectId);
   setFlash(c, "success", "Removed from your favourites.");
   return c.redirect(backPath(c, "/customer/favourites"));
+});
+
+customerRoutes.post("/ratings/:projectId", async (c) => {
+  const projectId = projectIdOrNull(c);
+  if (projectId === null) return c.notFound();
+  const form = await readForm(c);
+  const score = /^\d$/.test(form.score ?? "") ? Number(form.score) : NaN;
+  await rateProject(c.get("db"), c.get("user")!.id, projectId, score, form.comment);
+  setFlash(c, "success", "Thank you - your rating has been saved.");
+  return c.redirect(`/projects/${projectId}#reviews`);
 });

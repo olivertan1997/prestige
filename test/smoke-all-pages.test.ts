@@ -57,7 +57,8 @@ describe("Smoke Test 1: Demo data loads and every page of the website renders", 
   });
 
   it("Platform Management pages render", async () => {
-    await ok(platform, ["/issues/manage"]);
+    await ok(platform, ["/platform/reports", "/platform/reports?period=WEEKLY", "/platform/reports?period=MONTHLY", "/platform/categories",
+      "/platform/users", "/platform/users?status=BANNED", "/platform/ratings", "/issues/manage"]);
   });
 
   it("Unknown pages show the 404 page and forms from other sites are refused", async () => {

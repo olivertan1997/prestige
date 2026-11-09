@@ -95,6 +95,18 @@ create table if not exists project_activities (
 create index if not exists idx_activity_type_time on project_activities(type, occurred_at);
 create index if not exists idx_activity_project on project_activities(project_id);
 
+create table if not exists ratings (
+  id integer generated always as identity primary key,
+  customer_id integer not null references user_accounts(id),
+  project_id integer not null references design_projects(id) on delete cascade,
+  score integer not null check (score between 1 and 5),
+  comment text,
+  visible boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (customer_id, project_id)
+);
+
 create table if not exists availability_slots (
   id integer generated always as identity primary key,
   designer_id integer not null references user_accounts(id),

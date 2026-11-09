@@ -9,16 +9,18 @@ import {
   ROLE_LABELS,
   type Category,
   type Project,
+  type RatingSummary,
   type Slot,
   type User,
 } from "../types";
-import { calendar, filterSelect, globalError, input, select, textarea, type FormState } from "./components";
+import { avgText, calendar, filterSelect, globalError, input, ratingLine, select, textarea, type FormState } from "./components";
 import { page, type H, type PageCtx } from "./layout";
 
 const TITLE = "Prestige Interior Design";
 
 export interface DashboardView {
   stats: ProjectStats[];
+  rating: RatingSummary;
   hasCompany: boolean;
   upcomingSlots: number;
 }
@@ -35,11 +37,12 @@ export function dashboardPage(ctx: PageCtx, v: DashboardView): H {
   <div class="grid grid-4" style="margin-bottom:26px">
     <div class="stat"><div class="label">Total views</div><div class="value" data-total-views>${sum("views")}</div><div class="note">${sum("views30")} in the last 30 days</div></div>
     <div class="stat"><div class="label">Times shortlisted</div><div class="value" data-total-shortlists>${sum("shortlists")}</div><div class="note">${sum("shortlists30")} in the last 30 days</div></div>
+    <div class="stat"><div class="label">Average rating</div><div class="value">${avgText(v.rating)}</div><div class="note">${v.rating.count} rating(s)</div></div>
     <div class="stat"><div class="label">Upcoming slots</div><div class="value">${v.upcomingSlots}</div><div class="note"><a href="/designer/availability">Manage availability</a></div></div>
   </div>
   <div class="table-wrap"><table>
     <thead><tr><th>Project</th><th class="num">Views</th><th class="num">Views (30 days)</th><th class="num">Times shortlisted</th>
-      <th class="num">Shortlisted (30 days)</th><th class="num">In favourites now</th></tr></thead>
+      <th class="num">Shortlisted (30 days)</th><th class="num">In favourites now</th><th>Rating</th></tr></thead>
     <tbody>
       ${v.stats.map((s) => html`<tr data-project="${s.id}" data-views="${s.views}" data-shortlists="${s.shortlists}" data-favourites="${s.currentFavourites}">
         <td><a href="/projects/${s.id}">${s.title}</a><span class="sub">${PROJECT_STATUS_LABELS[s.status]} &middot; ${s.categoryName ?? "Uncategorised"}</span></td>
@@ -48,8 +51,9 @@ export function dashboardPage(ctx: PageCtx, v: DashboardView): H {
         <td class="num"><strong>${s.shortlists}</strong></td>
         <td class="num">${s.shortlists30}</td>
         <td class="num">${s.currentFavourites}</td>
+        <td>${ratingLine(s.rating, "not rated")}</td>
       </tr>`)}
-      ${v.stats.length ? "" : html`<tr><td colspan="6" class="empty">You have no projects yet. <a href="/designer/projects/new">Add your first project</a>.</td></tr>`}
+      ${v.stats.length ? "" : html`<tr><td colspan="7" class="empty">You have no projects yet. <a href="/designer/projects/new">Add your first project</a>.</td></tr>`}
     </tbody>
   </table></div>
   <p class="muted small" style="margin-top:10px">A view is counted once per visitor session; your own visits are not counted. "Times shortlisted" counts every time a customer saved the project to their favourites.</p>`);

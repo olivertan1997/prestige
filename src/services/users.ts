@@ -1,4 +1,4 @@
-// Spec 1 - user accounts and user profiles; stories 8 (search by name), 9 (filter by role), 10 (disable).
+// Spec 1 - user accounts and user profiles; stories 6 (ban), 8 (search by name), 9 (filter by role), 10 (disable).
 import { one, type Db } from "../db";
 import { BusinessError, NotFoundError, clean, escapeLike, isBlank } from "../lib/errors";
 import { hashPassword, verifyPassword } from "../lib/password";
@@ -8,6 +8,7 @@ import {
   ROLES,
   ROLE_LABELS,
   SELF_SERVICE_ROLES,
+  STAFF_ROLES,
   isOneOf,
   type AccountStatus,
   type Role,
@@ -168,7 +169,7 @@ export async function changePassword(db: Db, userId: number, current: string, ne
 
 // ------------------------------------------------------------------------ login
 
-export type LoginResult = { ok: true; user: User } | { ok: false; reason: "error" | "disabled" };
+export type LoginResult = { ok: true; user: User } | { ok: false; reason: "error" | "banned" | "disabled" };
 
 export async function authenticate(db: Db, username: string, password: string): Promise<LoginResult> {
   const user = username ? await findUserByUsername(db, username) : null;
@@ -177,17 +178,19 @@ export async function authenticate(db: Db, username: string, password: string): 
     return { ok: false, reason: "error" };
   }
   if (!(await verifyPassword(password, user.passwordHash))) return { ok: false, reason: "error" };
+  if (user.status === "BANNED") return { ok: false, reason: "banned" };
   if (user.status === "DISABLED" || !(await isProfileActive(db, user.role))) return { ok: false, reason: "disabled" };
   await db.query(`update user_accounts set last_login_at = now() where id = $1::int`, [user.id]);
   return { ok: true, user };
 }
 
-// ------------------------------------------------------------------- disable
+// ------------------------------------------------------------- disable / ban
 
 /** Story 10 - User Admin disables an account. All of the user's data is kept. */
 export async function disableUser(db: Db, actorId: number, targetId: number, reason?: string | null): Promise<User> {
   const target = await requireUser(db, targetId);
   if (target.id === actorId) throw new BusinessError("You cannot disable your own account.");
+  if (target.status === "BANNED") throw new BusinessError("This account is banned. Only Platform Management can lift a ban.");
   if (target.status === "DISABLED") throw new BusinessError("This account is already disabled.");
   return setStatus(db, targetId, "DISABLED", clean(reason));
 }
@@ -195,6 +198,25 @@ export async function disableUser(db: Db, actorId: number, targetId: number, rea
 export async function enableUser(db: Db, targetId: number): Promise<User> {
   const target = await requireUser(db, targetId);
   if (target.status !== "DISABLED") throw new BusinessError("Only disabled accounts can be re-enabled.");
+  return setStatus(db, targetId, "ACTIVE", null);
+}
+
+/** Story 6 - Platform Management bans a malicious user (e.g. a spam bot). Their content is hidden. */
+export async function banUser(db: Db, actorId: number, targetId: number, reason?: string | null): Promise<User> {
+  const target = await requireUser(db, targetId);
+  if (target.id === actorId) throw new BusinessError("You cannot ban yourself.");
+  if (STAFF_ROLES.includes(target.role)) {
+    throw new BusinessError("Staff accounts (User Admin / Platform Management) cannot be banned.");
+  }
+  if (target.status === "BANNED") throw new BusinessError("This account is already banned.");
+  const why = clean(reason);
+  if (!why) throw new BusinessError("Please give a reason for the ban.");
+  return setStatus(db, targetId, "BANNED", why);
+}
+
+export async function unbanUser(db: Db, targetId: number): Promise<User> {
+  const target = await requireUser(db, targetId);
+  if (target.status !== "BANNED") throw new BusinessError("This account is not banned.");
   return setStatus(db, targetId, "ACTIVE", null);
 }
 
