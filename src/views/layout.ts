@@ -15,12 +15,16 @@ const WORKSPACE_LINKS: Record<Role, [string, string][]> = {
   CUSTOMER: [
     ["/projects", "Search projects"],
     ["/designers", "Designers & calendars"],
+    ["/customer/favourites", "My favourites"],
+    ["/issues", "My reported issues"],
   ],
   INTERIOR_DESIGNER: [
     ["/designer/dashboard", "Dashboard"],
+    ["/designer/projects", "Portfolio"],
     ["/designer/company", "Company"],
     ["/designer/availability", "Availability"],
     ["/designer/users", "User directory"],
+    ["/issues", "My reported issues"],
   ],
   USER_ADMIN: [
     ["/admin/users", "User accounts"],
@@ -48,6 +52,7 @@ function header(ctx: PageCtx): H {
     <nav class="main-nav" aria-label="Main">
       <a href="/projects" class="${active(ctx.path, "/projects")}">Projects</a>
       <a href="/designers" class="${active(ctx.path, "/designers")}">Designers</a>
+      ${u?.role === "CUSTOMER" ? html`<a href="/customer/favourites" class="${active(ctx.path, "/customer")}">My favourites</a>` : ""}
     </nav>
     ${u
       ? html`<details class="account-menu">
@@ -58,6 +63,7 @@ function header(ctx: PageCtx): H {
           <div class="menu">
             <a href="/dashboard">My workspace</a>
             <a href="/profile">My profile</a>
+            <a href="/issues">Report an issue</a>
             <form action="/logout" method="post"><button type="submit">Log out</button></form>
           </div>
         </details>`
@@ -84,7 +90,7 @@ export function flashMessages(flash: Flash | null): H {
 function footer(): H {
   return html`<footer class="site-footer"><div class="container">
   <div><strong style="color:#fff;font-family:var(--serif);font-size:1.2rem">Prestige Interior Design</strong><br>Beautiful spaces, thoughtfully designed.</div>
-  <div><a href="/projects">Projects</a> &middot; <a href="/designers">Designers</a></div>
+  <div><a href="/projects">Projects</a> &middot; <a href="/designers">Designers</a> &middot; <a href="/issues">Report an issue</a></div>
   <div>&copy; ${year()} Prestige Interior Design</div>
 </div></footer>`;
 }

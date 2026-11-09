@@ -2,8 +2,12 @@ import { html } from "hono/html";
 import { fmtDate, fmtDayLong, todayLocal } from "../lib/dates";
 import type { CalendarMonth } from "../services/availability";
 import {
+  PROJECT_STATUSES,
+  PROJECT_STATUS_LABELS,
   ROLES,
   ROLE_LABELS,
+  type Category,
+  type Project,
   type Slot,
   type User,
 } from "../types";
@@ -22,6 +26,7 @@ export function dashboardPage(ctx: PageCtx, v: DashboardView): H {
   <div class="page-head">
     <div><p class="eyebrow">Interior designer</p><h1>Designer dashboard</h1>
       <p class="muted">Your company profile and the time slots customers can book with you.</p></div>
+    <a class="btn btn-gold" href="/designer/projects/new">+ Add a project</a>
   </div>
   ${v.hasCompany ? "" : html`<div class="alert alert-info">Customers trust studios with complete profiles. <a href="/designer/company">Add your company information &rarr;</a></div>`}
   <div class="grid grid-4" style="margin-bottom:26px">
@@ -49,6 +54,53 @@ export function companyPage(ctx: PageCtx, f: FormState, hasCompany: boolean): H 
       ${input(f, "website", "Website", { type: "url", placeholder: "https://", full: true })}
     </div>
     <div class="form-actions"><button class="btn btn-dark" type="submit">${hasCompany ? "Save changes" : "Create company profile"}</button></div>
+  </form>`);
+}
+
+export function portfolioPage(ctx: PageCtx, projects: Project[]): H {
+  return page(ctx, `My portfolio · ${TITLE}`, html`
+  <div class="page-head">
+    <div><p class="eyebrow">Interior designer</p><h1>My portfolio</h1><p class="muted">Manage your current and past Interior Design Projects.</p></div>
+    <a class="btn btn-gold" href="/designer/projects/new">+ Add a project</a>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Project</th><th>Status</th><th>Category</th><th>Updated</th><th></th></tr></thead>
+    <tbody>
+      ${projects.map((p) => html`<tr data-project="${p.id}">
+        <td><a href="/projects/${p.id}">${p.title}</a><span class="sub">${p.location ?? ""}</span></td>
+        <td><span class="badge ${p.status === "CURRENT" ? "badge-active" : ""}">${PROJECT_STATUS_LABELS[p.status]}</span></td>
+        <td>${p.categoryName ?? "-"}</td>
+        <td class="small">${fmtDate(p.updatedAt)}</td>
+        <td><div class="actions">
+          <a class="btn btn-ghost btn-sm" href="/designer/projects/${p.id}/edit">Edit</a>
+          <form class="inline" action="/designer/projects/${p.id}/delete" method="post" onsubmit="return confirm('Delete this project? Its views, favourites and ratings will also be removed.');">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button></form>
+        </div></td>
+      </tr>`)}
+      ${projects.length ? "" : html`<tr><td colspan="5" class="empty">No projects yet.</td></tr>`}
+    </tbody>
+  </table></div>`);
+}
+
+export function projectFormPage(ctx: PageCtx, f: FormState, categories: Category[], projectId: number | null): H {
+  return page(ctx, `${projectId ? "Edit project" : "Add a project"} · ${TITLE}`, html`
+  <p class="small"><a href="/designer/projects">&larr; My portfolio</a></p>
+  <div class="page-head"><div><p class="eyebrow">Portfolio</p><h1>${projectId ? "Edit project" : "Add a project"}</h1></div></div>
+  <form class="panel" action="${projectId ? `/designer/projects/${projectId}` : "/designer/projects"}" method="post">
+    ${globalError(f)}
+    <div class="form-grid">
+      ${input(f, "title", "Title *", { full: true, maxlength: 150, required: true, placeholder: "e.g. Japandi Kitchen and Dining Revamp" })}
+      ${select(f, "categoryId", "Category *", categories.map((c) => ({ value: String(c.id), label: c.name })), { blank: "Choose..." })}
+      ${select(f, "status", "Current or past? *", PROJECT_STATUSES.map((s) => ({ value: s, label: `${PROJECT_STATUS_LABELS[s]} project` })))}
+      ${input(f, "style", "Design style", { placeholder: "e.g. Scandinavian" })}
+      ${input(f, "location", "Location", { placeholder: "e.g. Tampines" })}
+      ${input(f, "budget", "Budget ($)", { type: "number", min: "0", step: "100" })}
+      ${input(f, "imageUrl", "Cover image URL", { type: "url", placeholder: "https://...", hint: "Optional. A link to a photo of the finished space." })}
+      ${input(f, "startDate", "Start date", { type: "date" })}
+      ${input(f, "endDate", "End date", { type: "date", hint: "Leave empty for ongoing projects." })}
+      ${textarea(f, "description", "Description", { full: true, maxlength: 4000, rows: 7, placeholder: "Describe the brief, materials and outcome." })}
+    </div>
+    <div class="form-actions"><button class="btn btn-dark" type="submit">${projectId ? "Save changes" : "Add project"}</button><a class="btn btn-ghost" href="/designer/projects">Cancel</a></div>
   </form>`);
 }
 

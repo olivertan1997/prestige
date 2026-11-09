@@ -8,7 +8,7 @@ import type { Db } from "../src/db";
 import { SESSION_COOKIE, createSession } from "../src/lib/sessions";
 import { SCHEMA_SQL } from "../src/schema";
 import { createCategory } from "../src/services/catalog";
-import { getProject } from "../src/services/projects";
+import { createProject } from "../src/services/projects";
 import { createUser, ensureProfiles } from "../src/services/users";
 import type { Category, Project, ProjectStatus, Role, User } from "../src/types";
 
@@ -123,13 +123,14 @@ export async function newProject(
   opts: { category?: Category; description?: string; status?: ProjectStatus } = {},
 ): Promise<Project> {
   const category = opts.category ?? (await newCategory(env));
-  // Until designers can manage a portfolio, test projects are inserted straight into the table.
-  const [row] = await env.db.query<{ id: number }>(
-    `insert into design_projects (designer_id, category_id, title, description, status, style, location)
-     values ($1::int, $2::int, $3, $4, $5, 'Modern', 'Singapore') returning id`,
-    [designer.id, category.id, title, opts.description ?? "A test project", opts.status ?? "CURRENT"],
-  );
-  return (await getProject(env.db, row.id))!;
+  return createProject(env.db, designer.id, {
+    title,
+    description: opts.description ?? "A test project",
+    categoryId: String(category.id),
+    status: opts.status ?? "CURRENT",
+    style: "Modern",
+    location: "Singapore",
+  });
 }
 
 export const location = (res: Response) => res.headers.get("location");

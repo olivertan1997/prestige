@@ -2,13 +2,15 @@ import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { pageCtx } from "../lib/context";
 import { BusinessError, clean } from "../lib/errors";
-import { readForm, setFlash } from "../lib/http";
+import { backPath, intParam, readForm, setFlash, type Ctx } from "../lib/http";
+import { myIssues, reportIssue, validateIssue } from "../services/issues";
+import { addFavourite, listFavourites, removeFavourite } from "../services/projects";
 import { MIN_PASSWORD_LENGTH, changePassword, requireUser, updateOwnProfile } from "../services/users";
 import type { User } from "../types";
-import { profilePage } from "../views/account";
+import { favouritesPage, myIssuesPage, profilePage } from "../views/account";
 import { emptyForm, type FormState } from "../views/components";
 
-// ---------------------------------------------------------------------- profile (any logged-in user)
+// ------------------------------------------------------------- profile + issues (any logged-in user)
 
 export const accountRoutes = new Hono<AppEnv>();
 
@@ -59,4 +61,51 @@ accountRoutes.post("/profile/password", async (c) => {
   }
   const user = await requireUser(db, me.id);
   return c.html(profilePage(pageCtx(c), user, emptyForm(profileValues(user)), f), 422);
+});
+
+// Story 3 - report an issue and follow its status
+accountRoutes.get("/issues", async (c) => {
+  const issues = await myIssues(c.get("db"), c.get("user")!.id);
+  return c.html(myIssuesPage(pageCtx(c), issues, emptyForm({ type: "BUG" })));
+});
+
+accountRoutes.post("/issues", async (c) => {
+  const db = c.get("db");
+  const me = c.get("user")!;
+  const values = await readForm(c);
+  const f: FormState = { values, errors: validateIssue(values) };
+  if (!Object.keys(f.errors).length) {
+    await reportIssue(db, me.id, values);
+    setFlash(c, "success", "Thank you - your report was sent. Its status is now Pending.");
+    return c.redirect("/issues");
+  }
+  return c.html(myIssuesPage(pageCtx(c), await myIssues(db, me.id), f), 422);
+});
+
+// ------------------------------------------------------------------- customer actions (story 4)
+
+export const customerRoutes = new Hono<AppEnv>();
+
+customerRoutes.get("/favourites", async (c) => {
+  return c.html(favouritesPage(pageCtx(c), await listFavourites(c.get("db"), c.get("user")!.id)));
+});
+
+function projectIdOrNull(c: Ctx): number | null {
+  return intParam(c.req.param("projectId"));
+}
+
+customerRoutes.post("/favourites/:projectId", async (c) => {
+  const projectId = projectIdOrNull(c);
+  if (projectId === null) return c.notFound();
+  const added = await addFavourite(c.get("db"), c.get("user")!.id, projectId);
+  setFlash(c, "success", added ? "Saved to your favourites." : "This project is already in your favourites.");
+  return c.redirect(backPath(c, `/projects/${projectId}`));
+});
+
+customerRoutes.post("/favourites/:projectId/remove", async (c) => {
+  const projectId = projectIdOrNull(c);
+  if (projectId === null) return c.notFound();
+  await removeFavourite(c.get("db"), c.get("user")!.id, projectId);
+  setFlash(c, "success", "Removed from your favourites.");
+  return c.redirect(backPath(c, "/customer/favourites"));
 });

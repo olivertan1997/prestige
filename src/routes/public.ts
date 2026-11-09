@@ -10,7 +10,9 @@ import { buildCalendar } from "../services/availability";
 import { getCompany, listActiveCategories } from "../services/catalog";
 import { countActiveDesigners, getActiveDesigner, listDesigners } from "../services/directory";
 import {
+  favouriteIds,
   featuredProjects,
+  listDesignerProjects,
   searchProjects,
 } from "../services/projects";
 import { MIN_PASSWORD_LENGTH, authenticate, registerUser } from "../services/users";
@@ -113,17 +115,19 @@ publicRoutes.post("/register", async (c) => {
 
 publicRoutes.get("/projects", async (c) => {
   const db = c.get("db");
+  const user = c.get("user");
   const view = {
     q: c.req.query("q") ?? "",
     category: intParam(c.req.query("category")),
     status: c.req.query("status") ?? "",
     sort: c.req.query("sort") ?? "newest",
   };
-  const [result, categories] = await Promise.all([
+  const [result, categories, favIds] = await Promise.all([
     searchProjects(db, { q: view.q, categoryId: view.category, status: view.status, sort: view.sort, page: intParam(c.req.query("page")) ?? 0 }),
     listActiveCategories(db),
+    user?.role === "CUSTOMER" ? favouriteIds(db, user.id) : Promise.resolve(new Set<number>()),
   ]);
-  return c.html(searchPage(pageCtx(c), result, view, categories));
+  return c.html(searchPage(pageCtx(c), result, view, categories, favIds));
 });
 
 // -------------------------------------------------------------------- designers
@@ -138,9 +142,10 @@ publicRoutes.get("/designers/:id", async (c) => {
   const id = intParam(c.req.param("id"));
   if (id === null) return c.notFound();
   const designer = await getActiveDesigner(db, id);
-  const [company, calendar] = await Promise.all([
+  const [company, projects, calendar] = await Promise.all([
     getCompany(db, id),
+    listDesignerProjects(db, id),
     buildCalendar(db, id, parseMonth(c.req.query("month"))),
   ]);
-  return c.html(designerPage(pageCtx(c), { designer, company, calendar }));
+  return c.html(designerPage(pageCtx(c), { designer, company, projects, calendar }));
 });

@@ -128,7 +128,7 @@ export interface SearchView {
   sort: string;
 }
 
-export function searchPage(ctx: PageCtx, result: ProjectPage, view: SearchView, categories: Category[]): H {
+export function searchPage(ctx: PageCtx, result: ProjectPage, view: SearchView, categories: Category[], favIds: Set<number>): H {
   const qs = (page: number) =>
     "/projects?" + new URLSearchParams({ q: view.q, category: view.category ? String(view.category) : "", status: view.status, sort: view.sort, page: String(page) }).toString();
   const sorts = [["newest", "Newest"], ["title", "Title A-Z"]];
@@ -144,7 +144,7 @@ export function searchPage(ctx: PageCtx, result: ProjectPage, view: SearchView, 
   </form>
   <p class="muted small">${result.total} project(s) found${view.q ? ` for "${view.q}"` : ""}</p>
   ${result.items.length
-    ? projectGrid(result.items)
+    ? projectGrid(result.items, favIds)
     : html`<div class="panel empty"><h3>No projects match your search</h3><p>Try fewer or different keywords, or clear the filters.</p><a class="btn btn-ghost" href="/projects">Clear search</a></div>`}
   ${result.totalPages > 1
     ? html`<nav class="pagination" aria-label="Pages">
@@ -167,6 +167,7 @@ export function designersPage(ctx: PageCtx, designers: DesignerCard[], q: string
 export interface DesignerDetailView {
   designer: User;
   company: Company | null;
+  projects: Project[];
   calendar: CalendarMonth;
 }
 
@@ -188,6 +189,7 @@ export function designerPage(ctx: PageCtx, v: DesignerDetailView): H {
         <p class="muted small">Green slots are open for consultations and site visits. Use them to plan when to start your renovation.</p>
         ${calendar(v.calendar, `/designers/${v.designer.id}`)}
       </div>
+      <div><h2 style="margin-top:20px">Portfolio</h2>${projectGrid(v.projects)}</div>
     </div>
     <aside class="panel sticky">
       <h3>Company information</h3>

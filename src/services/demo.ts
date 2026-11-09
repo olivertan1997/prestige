@@ -1,7 +1,7 @@
 // Demo accounts and sample content, created the first time the database is set up (if a seed password is given).
 import { one, type Db } from "../db";
 import { addDays, todayLocal } from "../lib/dates";
-import type { ProjectStatus, Role } from "../types";
+import type { IssueStatus, IssueType, ProjectStatus, Role } from "../types";
 import { ensureDefaultCategories } from "./catalog";
 import { createUser, ensureProfiles, findUserByUsername } from "./users";
 
@@ -74,6 +74,19 @@ export async function seedDemoData(db: Db, password: string): Promise<boolean> {
   const p7 = await project(marcus.id, "Retail & F&B", "Boutique Cafe Interior", "Contemporary", "Joo Chiat", 54000, "CURRENT", 15,
     "Terrazzo counters, curved banquettes and a living plant wall for a neighbourhood specialty cafe.");
 
+  const favourite = async (customerId: number, projectId: number, daysAgo: number) => {
+    await db.query(
+      `insert into favourites (customer_id, project_id, created_at) values ($1::int, $2::int, now() - $3::int * interval '1 day')
+       on conflict do nothing`,
+      [customerId, projectId, daysAgo],
+    );
+  };
+  await favourite(emily.id, p1.id, 20);
+  await favourite(emily.id, p3.id, 6);
+  await favourite(daniel.id, p1.id, 9);
+  await favourite(daniel.id, p5.id, 3);
+  await favourite(daniel.id, p7.id, 1);
+
   // Availability for the next six weeks (bulk insert per designer).
   const availability = async (designerId: number, weekdays: number[], times: [string, string][]) => {
     const dates: string[] = [], starts: string[] = [], ends: string[] = [], statuses: string[] = [];
@@ -97,5 +110,18 @@ export async function seedDemoData(db: Db, password: string): Promise<boolean> {
   };
   await availability(sophia.id, [1, 3, 5], [["10:00", "12:00"], ["14:00", "17:00"]]);
   await availability(marcus.id, [2, 4, 6], [["09:30", "12:30"]]);
+
+  const issue = (reporterId: number, type: IssueType, subject: string, description: string, status: IssueStatus,
+    note: string | null, handlerId: number | null) =>
+    db.query(
+      `insert into issue_reports (reporter_id, type, subject, description, status, resolution_note, handled_by_id, resolved_at)
+       values ($1::int, $2, $3, $4, $5, $6, $7::int, case when $5 = 'RECTIFIED' then now() - interval '1 day' else null end)`,
+      [reporterId, type, subject, description, status, note, handlerId],
+    );
+  await issue(emily.id, "BUG", "Project images load slowly", "Some project pages take a long time to show the cover image on my phone.", "PENDING", null, null);
+  await issue(daniel.id, "ACCOUNT", "Could not update my phone number", "Saving my profile showed an error the first time.", "REVIEWED",
+    "Thanks Daniel - we are looking into it.", admin.id);
+  await issue(emily.id, "SPAM", "Suspicious account sending links", "A user called 'promo_bot_88' keeps posting the same link.", "RECTIFIED",
+    "The account has been banned. Thank you for flagging it!", platform.id);
   return true;
 }

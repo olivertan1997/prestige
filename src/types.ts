@@ -23,6 +23,20 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = { CURRENT: "
 export const SLOT_STATUSES = ["AVAILABLE", "BOOKED"] as const;
 export type SlotStatus = (typeof SLOT_STATUSES)[number];
 
+export const ISSUE_STATUSES = ["PENDING", "REVIEWED", "RECTIFIED"] as const;
+export type IssueStatus = (typeof ISSUE_STATUSES)[number];
+export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = { PENDING: "Pending", REVIEWED: "Reviewed", RECTIFIED: "Rectified" };
+
+export const ISSUE_TYPES = ["BUG", "CONTENT", "ACCOUNT", "SPAM", "OTHER"] as const;
+export type IssueType = (typeof ISSUE_TYPES)[number];
+export const ISSUE_TYPE_LABELS: Record<IssueType, string> = {
+  BUG: "Bug / something is broken",
+  CONTENT: "Inappropriate content",
+  ACCOUNT: "Account or login problem",
+  SPAM: "Spam or suspicious user",
+  OTHER: "Other",
+};
+
 export function isOneOf<T extends string>(list: readonly T[], value: unknown): value is T {
   return typeof value === "string" && (list as readonly string[]).includes(value);
 }
@@ -109,4 +123,21 @@ export interface Slot {
   endTime: string; // HH:MM
   status: SlotStatus;
   note: string | null;
+}
+
+export interface Issue {
+  id: number;
+  reporterId: number;
+  reporterName: string;
+  reporterRole: Role;
+  type: IssueType;
+  subject: string;
+  description: string;
+  status: IssueStatus;
+  resolutionNote: string | null;
+  handledById: number | null;
+  handledByName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  resolvedAt: Date | null;
 }

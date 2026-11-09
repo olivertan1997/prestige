@@ -77,6 +77,14 @@ create table if not exists design_projects (
 );
 create index if not exists idx_projects_designer on design_projects(designer_id);
 
+create table if not exists favourites (
+  id integer generated always as identity primary key,
+  customer_id integer not null references user_accounts(id),
+  project_id integer not null references design_projects(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (customer_id, project_id)
+);
+
 create table if not exists availability_slots (
   id integer generated always as identity primary key,
   designer_id integer not null references user_accounts(id),
@@ -87,4 +95,18 @@ create table if not exists availability_slots (
   note text
 );
 create index if not exists idx_slots_designer_date on availability_slots(designer_id, slot_date);
+
+create table if not exists issue_reports (
+  id integer generated always as identity primary key,
+  reporter_id integer not null references user_accounts(id),
+  type text not null default 'OTHER' check (type in ('BUG','CONTENT','ACCOUNT','SPAM','OTHER')),
+  subject text not null,
+  description text not null,
+  status text not null default 'PENDING' check (status in ('PENDING','REVIEWED','RECTIFIED')),
+  resolution_note text,
+  handled_by_id integer references user_accounts(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  resolved_at timestamptz
+);
 `;
