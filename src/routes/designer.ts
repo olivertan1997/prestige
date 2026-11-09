@@ -1,4 +1,4 @@
-// Interior Designer workspace: specs 2, 3 and stories 2, 9.
+// Interior Designer workspace: specs 2, 3, 5 and stories 2, 7, 8, 9.
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { pageCtx } from "../lib/context";
@@ -12,6 +12,7 @@ import {
   deleteProject,
   getOwnedProject,
   listDesignerProjects,
+  statsForDesigner,
   updateProject,
   validateProject,
 } from "../services/projects";
@@ -27,8 +28,8 @@ export const designerRoutes = new Hono<AppEnv>();
 designerRoutes.get("/dashboard", async (c) => {
   const db = c.get("db");
   const id = c.get("user")!.id;
-  const [company, slots] = await Promise.all([getCompany(db, id), upcomingSlots(db, id)]);
-  return c.html(dashboardPage(pageCtx(c), { hasCompany: !!company, upcomingSlots: slots.length }));
+  const [stats, company, slots] = await Promise.all([statsForDesigner(db, id), getCompany(db, id), upcomingSlots(db, id)]);
+  return c.html(dashboardPage(pageCtx(c), { stats, hasCompany: !!company, upcomingSlots: slots.length }));
 });
 designerRoutes.get("/", (c) => c.redirect("/designer/dashboard"));
 
@@ -192,9 +193,10 @@ designerRoutes.post("/availability/:id/delete", async (c) => {
   return c.redirect(backPath(c, "/designer/availability"));
 });
 
-// ------------------------------------------------------ user directory (story 9)
+// ------------------------------------------------- user directory (stories 8 + 9)
 
 designerRoutes.get("/users", async (c) => {
+  const q = c.req.query("q") ?? "";
   const role = c.req.query("role") ?? "";
-  return c.html(directoryPage(pageCtx(c), await userDirectory(c.get("db"), role), role));
+  return c.html(directoryPage(pageCtx(c), await userDirectory(c.get("db"), q, role), q, role));
 });

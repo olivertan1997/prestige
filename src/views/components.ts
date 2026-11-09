@@ -11,6 +11,9 @@ export function badge(kind: string, text: string): H {
   return html`<span class="badge badge-${kind.toLowerCase()}">${text}</span>`;
 }
 
+const EYE = html`<svg class="icon" viewBox="0 0 24 24"><path d="M12 5C6.5 5 2.7 9.4 1.5 12c1.2 2.6 5 7 10.5 7s9.3-4.4 10.5-7C21.3 9.4 17.5 5 12 5zm0 11.5A4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 0 1 0 9zm0-2.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg>`;
+const HEART = html`<svg class="icon" viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.1 0 3.6 1.1 5.2 3 1.6-1.9 3.1-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>`;
+
 export const placeholderClass = (p: Pick<Project, "categoryId">) => `ph-${(p.categoryId ?? 0) % 6}`;
 
 export function projectCard(p: Project, favIds?: Set<number> | null): H {
@@ -24,6 +27,10 @@ export function projectCard(p: Project, favIds?: Set<number> | null): H {
     <p class="eyebrow">${p.categoryName ?? "Uncategorised"}</p>
     <h3><a href="/projects/${p.id}">${p.title}</a></h3>
     <p class="muted small" style="margin:0">${p.designerName}${p.location ? ` · ${p.location}` : ""}</p>
+    <div class="metrics">
+      <span title="Views">${EYE}<b>${p.viewCount}</b> views</span>
+      <span title="Times shortlisted">${HEART}<b>${p.shortlistCount}</b> shortlisted</span>
+    </div>
   </div>
 </article>`;
 }

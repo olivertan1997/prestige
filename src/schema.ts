@@ -85,6 +85,16 @@ create table if not exists favourites (
   unique (customer_id, project_id)
 );
 
+create table if not exists project_activities (
+  id integer generated always as identity primary key,
+  project_id integer not null references design_projects(id) on delete cascade,
+  user_id integer references user_accounts(id),
+  type text not null check (type in ('VIEW','SHORTLIST')),
+  occurred_at timestamptz not null default now()
+);
+create index if not exists idx_activity_type_time on project_activities(type, occurred_at);
+create index if not exists idx_activity_project on project_activities(project_id);
+
 create table if not exists availability_slots (
   id integer generated always as identity primary key,
   designer_id integer not null references user_accounts(id),

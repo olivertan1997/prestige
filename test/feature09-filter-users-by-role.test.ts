@@ -22,6 +22,14 @@ describe("Feature 9: Filter users by role to quickly find a specific account", (
     }
   });
 
+  it("Name search and role filter can be combined", async () => {
+    const designer = await newUser(env, "INTERIOR_DESIGNER");
+    const customer = await newUser(env, "CUSTOMER", "Ophelia Marigold");
+    const otherDesigner = await newUser(env, "INTERIOR_DESIGNER", "Ophelia Lantern");
+    expect((await listed(designer, "/designer/users?q=ophelia&role=CUSTOMER")).map((u) => u.id)).toEqual([customer.id]);
+    expect((await listed(designer, "/designer/users?q=ophelia&role=INTERIOR_DESIGNER")).map((u) => u.id)).toEqual([otherDesigner.id]);
+  });
+
   it("Without a role filter every role is listed", async () => {
     const designer = await newUser(env, "INTERIOR_DESIGNER");
     for (const role of ROLES) await newUser(env, role);

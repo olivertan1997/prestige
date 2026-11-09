@@ -1,4 +1,4 @@
-// Spec 1 - user accounts and user profiles; stories 9 (filter by role) and 10 (disable).
+// Spec 1 - user accounts and user profiles; stories 8 (search by name), 9 (filter by role), 10 (disable).
 import { one, type Db } from "../db";
 import { BusinessError, NotFoundError, clean, escapeLike, isBlank } from "../lib/errors";
 import { hashPassword, verifyPassword } from "../lib/password";
@@ -216,7 +216,7 @@ export interface UserSearch {
   status?: string | null;
 }
 
-/** Spec 1 + story 9: partial, case-insensitive name/username search, optional role and status filters. */
+/** Stories 8 + 9: partial, case-insensitive name/username search, optional role and status filters. */
 export async function searchUsers(db: Db, search: UserSearch = {}): Promise<User[]> {
   const where: string[] = [];
   const params: unknown[] = [];
@@ -238,8 +238,8 @@ export async function searchUsers(db: Db, search: UserSearch = {}): Promise<User
 }
 
 /** User directory for Interior Designers: only active accounts. */
-export function userDirectory(db: Db, role?: string | null): Promise<User[]> {
-  return searchUsers(db, { role, status: "ACTIVE" });
+export function userDirectory(db: Db, q?: string | null, role?: string | null): Promise<User[]> {
+  return searchUsers(db, { q, role, status: "ACTIVE" });
 }
 
 export async function countUsersByRole(db: Db): Promise<Record<Role, number>> {

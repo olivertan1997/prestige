@@ -7,6 +7,15 @@ import { createUser, ensureProfiles, findUserByUsername } from "./users";
 
 export const DEMO_USERNAMES = ["admin", "platform", "sophia", "marcus", "emily", "daniel"];
 
+/** Small deterministic random generator so the demo data is the same on every fresh database. */
+function seededRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+}
+
 export async function seedDemoData(db: Db, password: string): Promise<boolean> {
   await ensureProfiles(db);
   await ensureDefaultCategories(db);
@@ -74,10 +83,26 @@ export async function seedDemoData(db: Db, password: string): Promise<boolean> {
   const p7 = await project(marcus.id, "Retail & F&B", "Boutique Cafe Interior", "Contemporary", "Joo Chiat", 54000, "CURRENT", 15,
     "Terrazzo counters, curved banquettes and a living plant wall for a neighbourhood specialty cafe.");
 
+  // Historical views so the reports and dashboards have data on day one (one bulk insert per project).
+  const random = seededRandom(42);
+  const now = Date.now();
+  for (const p of [p1, p2, p3, p4, p5, p6, p7]) {
+    const count = 8 + Math.floor(random() * 22);
+    const stamps = Array.from({ length: count }, () => new Date(now - Math.floor(random() * p.ageDays * 24 * 3600 * 1000)).toISOString());
+    await db.query(
+      `insert into project_activities (project_id, type, occurred_at)
+       select $1::int, 'VIEW', t::timestamptz from unnest(string_to_array($2, ',')) as t`,
+      [p.id, stamps.join(",")],
+    );
+    await db.query(`update design_projects set view_count = $2::int where id = $1::int`, [p.id, count]);
+  }
+
   const favourite = async (customerId: number, projectId: number, daysAgo: number) => {
     await db.query(
-      `insert into favourites (customer_id, project_id, created_at) values ($1::int, $2::int, now() - $3::int * interval '1 day')
-       on conflict do nothing`,
+      `with ins as (insert into favourites (customer_id, project_id, created_at) values ($1::int, $2::int, now() - $3::int * interval '1 day')
+                    on conflict do nothing returning project_id, created_at)
+       , upd as (update design_projects set shortlist_count = shortlist_count + 1 where id in (select project_id from ins))
+       insert into project_activities (project_id, user_id, type, occurred_at) select project_id, $1::int, 'SHORTLIST', created_at from ins`,
       [customerId, projectId, daysAgo],
     );
   };

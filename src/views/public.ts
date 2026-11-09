@@ -134,7 +134,7 @@ export interface SearchView {
 export function searchPage(ctx: PageCtx, result: ProjectPage, view: SearchView, categories: Category[], favIds: Set<number>): H {
   const qs = (page: number) =>
     "/projects?" + new URLSearchParams({ q: view.q, category: view.category ? String(view.category) : "", status: view.status, sort: view.sort, page: String(page) }).toString();
-  const sorts = [["newest", "Newest"], ["title", "Title A-Z"]];
+  const sorts = [["newest", "Newest"], ["views", "Most viewed"], ["shortlisted", "Most shortlisted"], ["title", "Title A-Z"]];
   return page(ctx, `Search projects · ${TITLE}`, html`
   <div class="page-head"><div><p class="eyebrow">Interior design projects</p><h1>Find inspiration</h1>
     <p class="muted">Search by style, room, location or designer. Every word you type must match.</p></div></div>
@@ -185,6 +185,8 @@ export function projectPage(ctx: PageCtx, v: ProjectDetailView): H {
         <div><span>Location</span><strong>${p.location ?? "-"}</strong></div>
         <div><span>Budget</span><strong>${money(p.budget)}</strong></div>
         <div><span>Timeline</span><strong>${p.startDate ? fmtDate(p.startDate) : "Start not set"} &ndash; ${p.endDate ? fmtDate(p.endDate) : "ongoing"}</strong></div>
+        <div><span>Views</span><strong>${p.viewCount}</strong></div>
+        <div><span>Shortlisted</span><strong>${p.shortlistCount} times</strong></div>
       </div>
       <h3>About this project</h3>
       <p class="prose">${p.description ?? "No description provided."}</p>

@@ -1,4 +1,5 @@
-// Spec 3 (portfolio), spec 4 + story 1 (search / view / save) and story 4 (favourites).
+// Spec 3 (portfolio), spec 4 + story 1 (search / view / save), spec 5 + story 7 (interest tracking)
+// and story 4 (favourites).
 import { one, type Db } from "../db";
 import { isValidDate } from "../lib/dates";
 import { BusinessError, NotFoundError, clean, escapeLike } from "../lib/errors";
@@ -67,7 +68,9 @@ export async function searchProjects(db: Db, search: ProjectSearch = {}): Promis
     where.push(`p.status = $${params.length}`);
   }
   const order =
-    search.sort === "title" ? "lower(p.title) asc, p.id asc"
+    search.sort === "views" ? "p.view_count desc, p.id desc"
+    : search.sort === "shortlisted" ? "p.shortlist_count desc, p.id desc"
+    : search.sort === "title" ? "lower(p.title) asc, p.id asc"
     : "p.created_at desc, p.id desc";
   const clause = where.join(" and ");
   const countRow = await one<{ total: number }>(
@@ -106,6 +109,18 @@ export async function getProjectForViewer(db: Db, id: number, viewer: SessionUse
     if (!owner && !staff) throw new NotFoundError("Project not found");
   }
   return project;
+}
+
+/** Spec 5 - counts one view. A designer looking at their own project is not counted. */
+export async function recordView(db: Db, projectId: number, viewerId: number | null): Promise<boolean> {
+  const project = await one<{ designerId: number }>(db, `select designer_id as "designerId" from design_projects where id = $1::int`, [projectId]);
+  if (!project || project.designerId === viewerId) return false;
+  await db.query(
+    `with upd as (update design_projects set view_count = view_count + 1 where id = $1::int returning id)
+     insert into project_activities (project_id, user_id, type) select id, $2::int, 'VIEW' from upd`,
+    [projectId, viewerId],
+  );
+  return true;
 }
 
 // ------------------------------------------------------------- portfolio
@@ -211,6 +226,38 @@ export function listDesignerProjects(db: Db, designerId: number): Promise<Projec
   return db.query<Project>(`${PROJECT_SELECT} where p.designer_id = $1::int order by p.created_at desc, p.id desc`, [designerId]);
 }
 
+// ------------------------------------------------------------ statistics
+
+export interface ProjectStats {
+  id: number;
+  title: string;
+  status: ProjectStatus;
+  categoryName: string | null;
+  /** Total number of views. */
+  views: number;
+  /** Total number of times shortlisted (saved to a favourites list). */
+  shortlists: number;
+  /** Customers who still have it in their favourites. */
+  currentFavourites: number;
+  views30: number;
+  shortlists30: number;
+}
+
+/** Spec 5 / story 7 - views and shortlist counts for each of a designer's projects. */
+export async function statsForDesigner(db: Db, designerId: number): Promise<ProjectStats[]> {
+  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+  return db.query<ProjectStats>(
+    `select p.id, p.title, p.status, c.name as "categoryName", p.view_count as views, p.shortlist_count as shortlists,
+            (select count(*)::int from favourites f where f.project_id = p.id) as "currentFavourites",
+            (select count(*)::int from project_activities a where a.project_id = p.id and a.type = 'VIEW' and a.occurred_at >= $2::timestamptz) as views30,
+            (select count(*)::int from project_activities a where a.project_id = p.id and a.type = 'SHORTLIST' and a.occurred_at >= $2::timestamptz) as shortlists30
+       from design_projects p left join categories c on c.id = p.category_id
+      where p.designer_id = $1::int
+      order by p.created_at desc, p.id desc`,
+    [designerId, since],
+  );
+}
+
 // ------------------------------------------------------------ favourites
 
 async function requireCustomer(db: Db, customerId: number, action: string) {
@@ -225,7 +272,7 @@ async function requireVisibleProject(db: Db, projectId: number): Promise<Project
   return project;
 }
 
-/** Story 4 - save to favourites. Saving a project that is already saved changes nothing. */
+/** Story 4 - save to favourites. Each new save adds one to the project's shortlist count (story 7). */
 export async function addFavourite(db: Db, customerId: number, projectId: number): Promise<boolean> {
   await requireCustomer(db, customerId, "save projects to favourites");
   await requireVisibleProject(db, projectId);
@@ -233,14 +280,16 @@ export async function addFavourite(db: Db, customerId: number, projectId: number
     db,
     `with ins as (
         insert into favourites (customer_id, project_id) values ($1::int, $2::int)
-        on conflict (customer_id, project_id) do nothing returning project_id)
+        on conflict (customer_id, project_id) do nothing returning project_id),
+      upd as (update design_projects set shortlist_count = shortlist_count + 1 where id in (select project_id from ins) returning id),
+      act as (insert into project_activities (project_id, user_id, type) select project_id, $1::int, 'SHORTLIST' from ins returning id)
      select (select count(*)::int from ins) as added`,
     [customerId, projectId],
   );
   return (row?.added ?? 0) > 0;
 }
 
-/** Removes a project from the customer's favourites list. */
+/** Removing a favourite does not reduce the historical shortlist count. */
 export async function removeFavourite(db: Db, customerId: number, projectId: number): Promise<boolean> {
   const rows = await db.query(`delete from favourites where customer_id = $1::int and project_id = $2::int returning id`, [customerId, projectId]);
   return rows.length > 0;

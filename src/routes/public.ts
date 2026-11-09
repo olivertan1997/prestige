@@ -16,6 +16,7 @@ import {
   getProjectForViewer,
   isFavourite,
   listDesignerProjects,
+  recordView,
   searchProjects,
 } from "../services/projects";
 import { MIN_PASSWORD_LENGTH, authenticate, registerUser } from "../services/users";
@@ -24,6 +25,7 @@ import type { FormState } from "../views/components";
 import { designerPage, designersPage, homePage, loginPage, projectPage, registerPage, searchPage } from "../views/public";
 
 export const publicRoutes = new Hono<AppEnv>();
+const VIEWED_COOKIE = "pid_viewed";
 
 publicRoutes.get("/healthz", (c) => c.text("ok"));
 
@@ -133,12 +135,24 @@ publicRoutes.get("/projects", async (c) => {
   return c.html(searchPage(pageCtx(c), result, view, categories, favIds));
 });
 
+/** A view is counted once per browser session, so refreshing does not inflate the numbers. */
+function firstViewThisSession(c: Ctx, projectId: number): boolean {
+  const seen = (getCookie(c, VIEWED_COOKIE) ?? "").split(".").filter((x) => /^\d+$/.test(x));
+  if (seen.includes(String(projectId))) return false;
+  const next = [...seen, String(projectId)].slice(-100);
+  setCookie(c, VIEWED_COOKIE, next.join("."), { path: "/", httpOnly: true, sameSite: "Lax", secure: isHttps(c) });
+  return true;
+}
+
 publicRoutes.get("/projects/:id", async (c) => {
   const db = c.get("db");
   const user = c.get("user");
   const id = intParam(c.req.param("id"));
   if (id === null) return c.notFound();
-  const project = await getProjectForViewer(db, id, user);
+  let project = await getProjectForViewer(db, id, user);
+  if (firstViewThisSession(c, id) && (await recordView(db, id, user?.id ?? null))) {
+    project = { ...project, viewCount: project.viewCount + 1 };
+  }
   const isCustomer = user?.role === "CUSTOMER";
   const [company, currentFavourites, fav] = await Promise.all([
     getCompany(db, project.designerId),

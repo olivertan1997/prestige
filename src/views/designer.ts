@@ -1,6 +1,7 @@
 import { html } from "hono/html";
 import { fmtDate, fmtDayLong, todayLocal } from "../lib/dates";
 import type { CalendarMonth } from "../services/availability";
+import type { ProjectStats } from "../services/projects";
 import {
   PROJECT_STATUSES,
   PROJECT_STATUS_LABELS,
@@ -17,21 +18,41 @@ import { page, type H, type PageCtx } from "./layout";
 const TITLE = "Prestige Interior Design";
 
 export interface DashboardView {
+  stats: ProjectStats[];
   hasCompany: boolean;
   upcomingSlots: number;
 }
 
 export function dashboardPage(ctx: PageCtx, v: DashboardView): H {
+  const sum = (k: keyof Pick<ProjectStats, "views" | "shortlists" | "views30" | "shortlists30">) => v.stats.reduce((a, s) => a + s[k], 0);
   return page(ctx, `Designer dashboard · ${TITLE}`, html`
   <div class="page-head">
-    <div><p class="eyebrow">Interior designer</p><h1>Designer dashboard</h1>
-      <p class="muted">Your company profile and the time slots customers can book with you.</p></div>
+    <div><p class="eyebrow">Interior designer</p><h1>Interest in your projects</h1>
+      <p class="muted">How many people view and shortlist each of your Interior Design Projects.</p></div>
     <a class="btn btn-gold" href="/designer/projects/new">+ Add a project</a>
   </div>
   ${v.hasCompany ? "" : html`<div class="alert alert-info">Customers trust studios with complete profiles. <a href="/designer/company">Add your company information &rarr;</a></div>`}
   <div class="grid grid-4" style="margin-bottom:26px">
+    <div class="stat"><div class="label">Total views</div><div class="value" data-total-views>${sum("views")}</div><div class="note">${sum("views30")} in the last 30 days</div></div>
+    <div class="stat"><div class="label">Times shortlisted</div><div class="value" data-total-shortlists>${sum("shortlists")}</div><div class="note">${sum("shortlists30")} in the last 30 days</div></div>
     <div class="stat"><div class="label">Upcoming slots</div><div class="value">${v.upcomingSlots}</div><div class="note"><a href="/designer/availability">Manage availability</a></div></div>
-  </div>`);
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Project</th><th class="num">Views</th><th class="num">Views (30 days)</th><th class="num">Times shortlisted</th>
+      <th class="num">Shortlisted (30 days)</th><th class="num">In favourites now</th></tr></thead>
+    <tbody>
+      ${v.stats.map((s) => html`<tr data-project="${s.id}" data-views="${s.views}" data-shortlists="${s.shortlists}" data-favourites="${s.currentFavourites}">
+        <td><a href="/projects/${s.id}">${s.title}</a><span class="sub">${PROJECT_STATUS_LABELS[s.status]} &middot; ${s.categoryName ?? "Uncategorised"}</span></td>
+        <td class="num"><strong>${s.views}</strong></td>
+        <td class="num">${s.views30}</td>
+        <td class="num"><strong>${s.shortlists}</strong></td>
+        <td class="num">${s.shortlists30}</td>
+        <td class="num">${s.currentFavourites}</td>
+      </tr>`)}
+      ${v.stats.length ? "" : html`<tr><td colspan="6" class="empty">You have no projects yet. <a href="/designer/projects/new">Add your first project</a>.</td></tr>`}
+    </tbody>
+  </table></div>
+  <p class="muted small" style="margin-top:10px">A view is counted once per visitor session; your own visits are not counted. "Times shortlisted" counts every time a customer saved the project to their favourites.</p>`);
 }
 
 export function companyPage(ctx: PageCtx, f: FormState, hasCompany: boolean): H {
@@ -64,12 +85,14 @@ export function portfolioPage(ctx: PageCtx, projects: Project[]): H {
     <a class="btn btn-gold" href="/designer/projects/new">+ Add a project</a>
   </div>
   <div class="table-wrap"><table>
-    <thead><tr><th>Project</th><th>Status</th><th>Category</th><th>Updated</th><th></th></tr></thead>
+    <thead><tr><th>Project</th><th>Status</th><th>Category</th><th class="num">Views</th><th class="num">Shortlisted</th><th>Updated</th><th></th></tr></thead>
     <tbody>
       ${projects.map((p) => html`<tr data-project="${p.id}">
         <td><a href="/projects/${p.id}">${p.title}</a><span class="sub">${p.location ?? ""}</span></td>
         <td><span class="badge ${p.status === "CURRENT" ? "badge-active" : ""}">${PROJECT_STATUS_LABELS[p.status]}</span></td>
         <td>${p.categoryName ?? "-"}</td>
+        <td class="num">${p.viewCount}</td>
+        <td class="num">${p.shortlistCount}</td>
         <td class="small">${fmtDate(p.updatedAt)}</td>
         <td><div class="actions">
           <a class="btn btn-ghost btn-sm" href="/designer/projects/${p.id}/edit">Edit</a>
@@ -77,7 +100,7 @@ export function portfolioPage(ctx: PageCtx, projects: Project[]): H {
             <button class="btn btn-danger btn-sm" type="submit">Delete</button></form>
         </div></td>
       </tr>`)}
-      ${projects.length ? "" : html`<tr><td colspan="5" class="empty">No projects yet.</td></tr>`}
+      ${projects.length ? "" : html`<tr><td colspan="7" class="empty">No projects yet.</td></tr>`}
     </tbody>
   </table></div>`);
 }
@@ -145,25 +168,33 @@ export function availabilityPage(ctx: PageCtx, cal: CalendarMonth, upcoming: Slo
   </table></div>`);
 }
 
-export function directoryPage(ctx: PageCtx, users: User[], role: string): H {
+export function directoryPage(ctx: PageCtx, users: User[], q: string, role: string): H {
   return page(ctx, `User directory · ${TITLE}`, html`
   <div class="page-head"><div><p class="eyebrow">Interior designer</p><h1>User directory</h1>
-    <p class="muted">Filter users by role to quickly find a specific account.</p></div></div>
+    <p class="muted">Search users by name and filter by role to quickly find a specific account. Customers' email addresses and phone numbers are shown so you can get in touch.</p></div></div>
   <form class="filters" action="/designer/users" method="get">
+    <div class="field grow"><label for="q">Name</label><input type="search" id="q" name="q" value="${q}" placeholder="Search by name or username"></div>
     ${filterSelect("role", "Role", ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] })), role, "All roles")}
-    <button class="btn btn-dark" type="submit">Filter</button><a class="btn btn-ghost" href="/designer/users">Reset</a>
+    <button class="btn btn-dark" type="submit">Search</button><a class="btn btn-ghost" href="/designer/users">Reset</a>
   </form>
   <p class="muted small">${users.length} user(s) found</p>
   <div class="table-wrap"><table>
-    <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Member since</th></tr></thead>
+    <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Email</th><th>Phone</th><th>Member since</th></tr></thead>
     <tbody>
-      ${users.map((u) => html`<tr data-user="${u.id}" data-role="${u.role}">
+      ${users.map((u) => {
+        // Only customers' contact details are shown, so designers can reach potential clients.
+        const customer = u.role === "CUSTOMER";
+        const none = html`<span class="muted">-</span>`;
+        return html`<tr data-user="${u.id}" data-role="${u.role}">
         <td>${u.role === "INTERIOR_DESIGNER" ? html`<a href="/designers/${u.id}">${u.fullName}</a>` : u.fullName}</td>
         <td>${u.username}</td>
         <td><span class="badge badge-role">${ROLE_LABELS[u.role]}</span></td>
+        <td class="small">${customer ? html`<a href="mailto:${u.email}" data-email>${u.email}</a>` : none}</td>
+        <td class="small">${customer ? (u.phone ? html`<a href="tel:${u.phone.replace(/[^\d+]/g, "")}" data-phone>${u.phone}</a>` : html`<span class="muted">Not given</span>`) : none}</td>
         <td class="small">${fmtDate(u.createdAt)}</td>
-      </tr>`)}
-      ${users.length ? "" : html`<tr><td colspan="4" class="empty">No users match this filter.</td></tr>`}
+      </tr>`;
+      })}
+      ${users.length ? "" : html`<tr><td colspan="6" class="empty">No users match your search.</td></tr>`}
     </tbody>
   </table></div>`);
 }
