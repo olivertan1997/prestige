@@ -3,11 +3,12 @@ import { one, type Db } from "../db";
 import { addDays, todayLocal } from "../lib/dates";
 import type { ProjectStatus, Role } from "../types";
 import { ensureDefaultCategories } from "./catalog";
-import { createUser, findUserByUsername } from "./users";
+import { createUser, ensureProfiles, findUserByUsername } from "./users";
 
 export const DEMO_USERNAMES = ["admin", "platform", "sophia", "marcus", "emily", "daniel"];
 
 export async function seedDemoData(db: Db, password: string): Promise<boolean> {
+  await ensureProfiles(db);
   await ensureDefaultCategories(db);
   if (await findUserByUsername(db, "sophia")) return false; // already seeded
 

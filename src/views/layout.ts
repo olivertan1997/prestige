@@ -20,8 +20,11 @@ const WORKSPACE_LINKS: Record<Role, [string, string][]> = {
     ["/designer/dashboard", "Dashboard"],
     ["/designer/company", "Company"],
     ["/designer/availability", "Availability"],
+    ["/designer/users", "User directory"],
   ],
   USER_ADMIN: [
+    ["/admin/users", "User accounts"],
+    ["/admin/profiles", "User profiles"],
   ],
   PLATFORM_MANAGEMENT: [
   ],
@@ -54,11 +57,13 @@ function header(ctx: PageCtx): H {
           </summary>
           <div class="menu">
             <a href="/dashboard">My workspace</a>
+            <a href="/profile">My profile</a>
             <form action="/logout" method="post"><button type="submit">Log out</button></form>
           </div>
         </details>`
       : html`<div class="account">
           <a class="btn btn-ghost btn-sm" href="/login">Log in</a>
+          <a class="btn btn-gold btn-sm" href="/register">Join Prestige</a>
         </div>`}
   </div>
   ${u

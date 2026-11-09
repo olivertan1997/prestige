@@ -8,6 +8,8 @@ export const ROLE_LABELS: Record<Role, string> = {
   CUSTOMER: "Customer",
   PLATFORM_MANAGEMENT: "Platform Management",
 };
+/** Roles a visitor may choose when signing up. Staff accounts are created by a User Admin. */
+export const SELF_SERVICE_ROLES: Role[] = ["CUSTOMER", "INTERIOR_DESIGNER"];
 
 /** ACTIVE = normal; DISABLED = suspended by a User Admin (data kept); BANNED = removed by Platform Management. */
 export const ACCOUNT_STATUSES = ["ACTIVE", "DISABLED", "BANNED"] as const;
@@ -42,6 +44,15 @@ export interface User {
 
 /** The logged-in user as seen by pages and route guards. */
 export type SessionUser = Pick<User, "id" | "username" | "fullName" | "role" | "email">;
+
+export interface UserProfile {
+  id: number;
+  role: Role;
+  name: string;
+  description: string | null;
+  active: boolean;
+  updatedAt: Date;
+}
 
 export interface Company {
   id: number;

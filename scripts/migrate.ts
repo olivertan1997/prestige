@@ -6,6 +6,7 @@ import { postgresDb } from "../src/db";
 import { SCHEMA_SQL } from "../src/schema";
 import { ensureDefaultCategories } from "../src/services/catalog";
 import { seedDemoData } from "../src/services/demo";
+import { ensureProfiles } from "../src/services/users";
 
 const { DB_HOST, DB_USER, DB_PASSWORD, DB_PORT = "5432", DB_NAME = "postgres", APP_SEED_PASSWORD } = process.env;
 if (!DB_HOST || !DB_USER || !DB_PASSWORD) {
@@ -30,8 +31,9 @@ try {
   console.log(`Connecting to ${DB_HOST}:${DB_PORT} as ${DB_USER} ...`);
   await db.exec(SCHEMA_SQL);
   console.log("Tables are up to date.");
+  await ensureProfiles(db);
   await ensureDefaultCategories(db);
-  console.log("Default categories are in place.");
+  console.log("User profiles and default categories are in place.");
   if (APP_SEED_PASSWORD && APP_SEED_PASSWORD.length >= 8) {
     const seeded = await seedDemoData(db, APP_SEED_PASSWORD);
     console.log(seeded ? "Demo accounts and sample projects created." : "Demo data already exists - left unchanged.");

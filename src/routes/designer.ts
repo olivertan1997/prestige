@@ -1,4 +1,4 @@
-// Interior Designer workspace: spec 2 and story 2.
+// Interior Designer workspace: spec 2 and stories 2, 9.
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { pageCtx } from "../lib/context";
@@ -7,9 +7,10 @@ import { BusinessError } from "../lib/errors";
 import { backPath, intParam, readForm, setFlash } from "../lib/http";
 import { addSlot, buildCalendar, deleteSlot, toggleSlot, upcomingSlots, validateSlot } from "../services/availability";
 import { getCompany, saveCompany, validateCompany } from "../services/catalog";
+import { userDirectory } from "../services/users";
 import type { Company } from "../types";
 import { emptyForm, type FormState } from "../views/components";
-import { availabilityPage, companyPage, dashboardPage } from "../views/designer";
+import { availabilityPage, companyPage, dashboardPage, directoryPage } from "../views/designer";
 
 export const designerRoutes = new Hono<AppEnv>();
 
@@ -98,4 +99,11 @@ designerRoutes.post("/availability/:id/delete", async (c) => {
   await deleteSlot(c.get("db"), c.get("user")!.id, id);
   setFlash(c, "success", "Slot removed.");
   return c.redirect(backPath(c, "/designer/availability"));
+});
+
+// ------------------------------------------------------ user directory (story 9)
+
+designerRoutes.get("/users", async (c) => {
+  const role = c.req.query("role") ?? "";
+  return c.html(directoryPage(pageCtx(c), await userDirectory(c.get("db"), role), role));
 });

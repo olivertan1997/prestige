@@ -2,6 +2,15 @@
 // Run by scripts/migrate.ts during each deploy, and by the test suite on its in-memory database.
 
 export const SCHEMA_SQL = `
+create table if not exists user_profiles (
+  id integer generated always as identity primary key,
+  role text not null unique check (role in ('USER_ADMIN','INTERIOR_DESIGNER','CUSTOMER','PLATFORM_MANAGEMENT')),
+  name text not null,
+  description text,
+  active boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists user_accounts (
   id integer generated always as identity primary key,
   username text not null unique,

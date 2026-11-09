@@ -3,6 +3,7 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { AppEnv } from "../env";
 import { pageCtx } from "../lib/context";
 import { parseMonth } from "../lib/dates";
+import { BusinessError, clean } from "../lib/errors";
 import { intParam, isHttps, readForm, setFlash, type Ctx } from "../lib/http";
 import { SESSION_COOKIE, SESSION_DAYS, createSession, destroySession } from "../lib/sessions";
 import { buildCalendar } from "../services/availability";
@@ -12,8 +13,10 @@ import {
   featuredProjects,
   searchProjects,
 } from "../services/projects";
-import { authenticate } from "../services/users";
-import { designerPage, designersPage, homePage, loginPage, searchPage } from "../views/public";
+import { MIN_PASSWORD_LENGTH, authenticate, registerUser } from "../services/users";
+import { SELF_SERVICE_ROLES, isOneOf } from "../types";
+import type { FormState } from "../views/components";
+import { designerPage, designersPage, homePage, loginPage, registerPage, searchPage } from "../views/public";
 
 export const publicRoutes = new Hono<AppEnv>();
 
@@ -34,7 +37,7 @@ publicRoutes.get("/", async (c) => {
 
 publicRoutes.get("/login", (c) => {
   if (c.get("user")) return c.redirect("/dashboard");
-  const reason = ["error", "expired"].find((k) => c.req.query(k) !== undefined) ?? null;
+  const reason = ["error", "disabled", "expired"].find((k) => c.req.query(k) !== undefined) ?? null;
   return c.html(loginPage(pageCtx(c), reason));
 });
 
@@ -62,8 +65,48 @@ publicRoutes.post("/logout", async (c) => {
 /** Sends each role to its own workspace. */
 publicRoutes.get("/dashboard", (c) => {
   const role = c.get("user")!.role;
-  const target = { USER_ADMIN: "/", PLATFORM_MANAGEMENT: "/", INTERIOR_DESIGNER: "/designer/dashboard", CUSTOMER: "/projects" }[role];
+  const target = { USER_ADMIN: "/admin/users", PLATFORM_MANAGEMENT: "/", INTERIOR_DESIGNER: "/designer/dashboard", CUSTOMER: "/projects" }[role];
   return c.redirect(target);
+});
+
+// --------------------------------------------------------------------- register
+
+publicRoutes.get("/register", (c) => {
+  if (c.get("user")) return c.redirect("/dashboard");
+  return c.html(registerPage(pageCtx(c), { values: { role: "CUSTOMER" }, errors: {} }));
+});
+
+function validateRegistration(v: Record<string, string>): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (!clean(v.fullName)) errors.fullName = "Full name is required";
+  const username = clean(v.username) ?? "";
+  if (!/^[A-Za-z0-9._-]{3,50}$/.test(username)) errors.username = "Use 3-50 letters, numbers, dots, dashes or underscores";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean(v.email) ?? "")) errors.email = "Enter a valid email address";
+  if ((v.password ?? "").length < MIN_PASSWORD_LENGTH) errors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
+  if ((v.password ?? "") !== (v.confirmPassword ?? "")) errors.confirmPassword = "Passwords do not match";
+  if (!isOneOf(SELF_SERVICE_ROLES, v.role)) errors.role = "Choose an account type";
+  return errors;
+}
+
+publicRoutes.post("/register", async (c) => {
+  const values = await readForm(c);
+  const f: FormState = { values, errors: validateRegistration(values) };
+  if (!Object.keys(f.errors).length) {
+    try {
+      await registerUser(c.get("db"), {
+        username: values.username, email: values.email, fullName: values.fullName,
+        password: values.password, role: values.role, phone: values.phone,
+      });
+      setFlash(c, "success", "Welcome to Prestige! Your account is ready - please log in.");
+      return c.redirect("/login");
+    } catch (e) {
+      if (!(e instanceof BusinessError)) throw e;
+      f.global = e.message;
+    }
+  } else if (f.errors.role) {
+    f.global = f.errors.role;
+  }
+  return c.html(registerPage(pageCtx(c), f), 422);
 });
 
 // --------------------------------------------------------------------- projects

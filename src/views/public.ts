@@ -5,15 +5,20 @@ import type { ProjectPage } from "../services/projects";
 import {
   PROJECT_STATUSES,
   PROJECT_STATUS_LABELS,
+  ROLE_LABELS,
   type Category,
   type Company,
   type Project,
+  type Role,
   type User,
 } from "../types";
 import {
   calendar,
   filterSelect,
+  globalError,
+  input,
   projectGrid,
+  type FormState,
 } from "./components";
 import { page, type H, type PageCtx } from "./layout";
 
@@ -64,13 +69,19 @@ export function homePage(ctx: PageCtx, featured: Project[], categories: Category
         <a class="btn btn-ghost" href="/designers">All designers &rarr;</a>
       </div>${designerCards(designers)}`
     : ""}
-  `;
+
+  ${ctx.user ? "" : html`<div class="panel" style="margin-top:44px"><div class="row between">
+      <div><h2 style="margin-bottom:6px">Are you an interior designer?</h2>
+      <p class="muted" style="margin:0">Showcase your portfolio, publish your availability and see how many people view and shortlist your work.</p></div>
+      <a class="btn btn-dark" href="/register">Create a free designer account</a>
+    </div></div>`}`;
   return page(ctx, `${TITLE} - beautiful spaces, thoughtfully designed`, body, { hero });
 }
 
 export function loginPage(ctx: PageCtx, reason: string | null, username = ""): H {
   const messages: Record<string, H> = {
     error: html`<div class="alert alert-error">Incorrect username or password.</div>`,
+    disabled: html`<div class="alert alert-error">This account is disabled. Please contact a User Admin.</div>`,
     expired: html`<div class="alert alert-info">Please log in to continue. (Your session ended or your account was changed.)</div>`,
   };
   return page(ctx, `Log in · ${TITLE}`, html`<div class="auth-wrap"><div class="panel">
@@ -80,6 +91,32 @@ export function loginPage(ctx: PageCtx, reason: string | null, username = ""): H
       <div class="field"><label for="username">Username</label><input type="text" id="username" name="username" value="${username}" autocomplete="username" required autofocus></div>
       <div class="field"><label for="password">Password</label><input type="password" id="password" name="password" autocomplete="current-password" required></div>
       <button class="btn btn-dark btn-block" type="submit">Log in</button>
+    </form>
+    <p class="muted small" style="margin:18px 0 0">New to Prestige? <a href="/register">Create an account</a></p>
+  </div></div>`, { bare: true });
+}
+
+export function registerPage(ctx: PageCtx, f: FormState): H {
+  const roles: [Role, string][] = [["CUSTOMER", "Search, save and rate projects"], ["INTERIOR_DESIGNER", "Show my portfolio and availability"]];
+  const chosen = f.values.role || "CUSTOMER";
+  return page(ctx, `Create an account · ${TITLE}`, html`<div class="auth-wrap wide"><div class="panel">
+    <p class="eyebrow">Join Prestige</p><h1>Create your account</h1>
+    <form action="/register" method="post">
+      ${globalError(f)}
+      <p class="label">I am a...</p>
+      <div class="role-picker" style="margin-bottom:18px">${roles.map(
+        ([role, text]) => html`<label><input type="radio" name="role" value="${role}"${chosen === role ? html` checked` : ""}>
+          <span><strong>${ROLE_LABELS[role]}</strong> <span class="muted small">${text}</span></span></label>`,
+      )}</div>
+      <div class="form-grid">
+        ${input(f, "fullName", "Full name", { autocomplete: "name", required: true })}
+        ${input(f, "username", "Username", { autocomplete: "username", required: true, hint: "3-50 letters, numbers, dots, dashes or underscores" })}
+        ${input(f, "email", "Email", { type: "email", autocomplete: "email", required: true })}
+        ${input(f, "phone", "Phone (optional)", { autocomplete: "tel" })}
+        ${input(f, "password", "Password", { type: "password", autocomplete: "new-password", required: true, hint: "At least 8 characters. Stored only as a salted SHA-256 hash." })}
+        ${input(f, "confirmPassword", "Confirm password", { type: "password", autocomplete: "new-password", required: true })}
+      </div>
+      <div class="form-actions"><button class="btn btn-dark" type="submit">Create account</button><a class="btn btn-ghost" href="/login">I already have an account</a></div>
     </form>
   </div></div>`, { bare: true });
 }

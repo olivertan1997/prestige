@@ -2,7 +2,10 @@ import { html } from "hono/html";
 import { fmtDate, fmtDayLong, todayLocal } from "../lib/dates";
 import type { CalendarMonth } from "../services/availability";
 import {
+  ROLES,
+  ROLE_LABELS,
   type Slot,
+  type User,
 } from "../types";
 import { calendar, filterSelect, globalError, input, select, textarea, type FormState } from "./components";
 import { page, type H, type PageCtx } from "./layout";
@@ -86,6 +89,29 @@ export function availabilityPage(ctx: PageCtx, cal: CalendarMonth, upcoming: Slo
         </div></td>
       </tr>`)}
       ${upcoming.length ? "" : html`<tr><td colspan="5" class="empty">No upcoming slots. Add one with the form above.</td></tr>`}
+    </tbody>
+  </table></div>`);
+}
+
+export function directoryPage(ctx: PageCtx, users: User[], role: string): H {
+  return page(ctx, `User directory · ${TITLE}`, html`
+  <div class="page-head"><div><p class="eyebrow">Interior designer</p><h1>User directory</h1>
+    <p class="muted">Filter users by role to quickly find a specific account.</p></div></div>
+  <form class="filters" action="/designer/users" method="get">
+    ${filterSelect("role", "Role", ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] })), role, "All roles")}
+    <button class="btn btn-dark" type="submit">Filter</button><a class="btn btn-ghost" href="/designer/users">Reset</a>
+  </form>
+  <p class="muted small">${users.length} user(s) found</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Member since</th></tr></thead>
+    <tbody>
+      ${users.map((u) => html`<tr data-user="${u.id}" data-role="${u.role}">
+        <td>${u.role === "INTERIOR_DESIGNER" ? html`<a href="/designers/${u.id}">${u.fullName}</a>` : u.fullName}</td>
+        <td>${u.username}</td>
+        <td><span class="badge badge-role">${ROLE_LABELS[u.role]}</span></td>
+        <td class="small">${fmtDate(u.createdAt)}</td>
+      </tr>`)}
+      ${users.length ? "" : html`<tr><td colspan="4" class="empty">No users match this filter.</td></tr>`}
     </tbody>
   </table></div>`);
 }

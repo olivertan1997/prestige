@@ -9,7 +9,7 @@ import { SESSION_COOKIE, createSession } from "../src/lib/sessions";
 import { SCHEMA_SQL } from "../src/schema";
 import { createCategory } from "../src/services/catalog";
 import { getProject } from "../src/services/projects";
-import { createUser } from "../src/services/users";
+import { createUser, ensureProfiles } from "../src/services/users";
 import type { Category, Project, ProjectStatus, Role, User } from "../src/types";
 
 export const PASSWORD = "Password123!";
@@ -33,6 +33,7 @@ export function useTestDb(): TestEnv {
         await env.pg.exec(text);
       },
     };
+    await ensureProfiles(env.db);
     env.app = createApp({ openDb: () => ({ db: env.db }) });
   });
   beforeEach(async () => {

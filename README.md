@@ -31,9 +31,12 @@ Free-plan limits: 100,000 requests a day, 100,000 database queries a day, and 10
 
 | Requirement | Code | Test file |
 | --- | --- | --- |
+| Spec 1 - user accounts and profiles | `src/services/users.ts`, `src/routes/admin.ts`, `src/routes/account.ts` | `test/spec1-user-accounts.test.ts` |
 | Spec 2 - ID company information | `src/services/catalog.ts` (companies) | `test/spec2-company.test.ts` |
 | Story 1 - keyword search | `searchProjects` | `test/feature01-keyword-search.test.ts` |
 | Story 2 - availability calendar | `src/services/availability.ts` | `test/feature02-availability-calendar.test.ts` |
+| Story 9 - filter users by role | same as above | `test/feature09-filter-users-by-role.test.ts` |
+| Story 10 - disable a user (data kept) | `disableUser` | `test/feature10-disable-user.test.ts` |
 | Passwords hashed with SHA-256 | `src/lib/password.ts` | `test/password-hashing.test.ts` |
 
 **Password storage.** Each password gets a random 16-byte salt. The database stores

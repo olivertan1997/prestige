@@ -28,7 +28,8 @@ export async function loadSessionUser(db: Db, token: string | undefined): Promis
     `select u.id, u.username, u.full_name as "fullName", u.role, u.email
        from sessions s
        join user_accounts u on u.id = s.user_id
-      where s.id = $1 and s.expires_at > now() and u.status = 'ACTIVE'`,
+       left join user_profiles p on p.role = u.role
+      where s.id = $1 and s.expires_at > now() and u.status = 'ACTIVE' and coalesce(p.active, true)`,
     [id],
   );
 }
