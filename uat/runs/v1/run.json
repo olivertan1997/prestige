@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "n": 1,
+  "testedFrom": "2026-11-07",
+  "testedTo": "2026-11-07",
+  "savedAt": "2026-11-07T08:30:47.543Z",
+  "source": "completed UAT.txt",
+  "counts": {
+    "pass": 55,
+    "fail": 1,
+    "blocked": 0,
+    "untested": 0
+  },
+  "total": 56
+}

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { addDays, todayLocal } from "../src/lib/dates";
 import { seedDemoData } from "../src/services/demo";
 import { listDesignerProjects } from "../src/services/projects";
+import { SAMPLE_PASSWORD, addSampleData, sampleDataProblems } from "../src/services/sample-data";
 import { findUserByUsername } from "../src/services/users";
 import type { User } from "../src/types";
 import { asUser, browser, useTestDb } from "./support";
@@ -59,6 +60,26 @@ describe("Smoke Test 1: Demo data loads and every page of the website renders", 
   it("Platform Management pages render", async () => {
     await ok(platform, ["/platform/reports", "/platform/reports?period=WEEKLY", "/platform/reports?period=MONTHLY", "/platform/categories",
       "/platform/users", "/platform/users?status=BANNED", "/platform/ratings", "/issues/manage"]);
+  });
+
+  it("The extra sample data meets every target, its accounts log in with 12345678, and busy pages still render", async () => {
+    const result = await addSampleData(env.db);
+    expect(result).not.toBeNull();
+    expect(sampleDataProblems(result!)).toEqual([]);
+    expect(result!.added).toMatchObject({ designers: 30, customers: 200, companies: 15, categories: 20, projects: 50, ratings: 600, activities: 415 });
+    expect(await addSampleData(env.db)).toBeNull(); // added only once
+
+    const [sampleDesigner, sampleCustomer] = await Promise.all(["INTERIOR_DESIGNER", "CUSTOMER"].map(async (role) =>
+      (await env.db.query<{ username: string }>(`select username from user_accounts where role = $1 and email like '%@example.net' order by id limit 1`, [role]))[0].username));
+    for (const username of [sampleDesigner, sampleCustomer]) {
+      const res = await browser(env).loginWithPassword(username, SAMPLE_PASSWORD);
+      expect(res.status, username).toBe(302);
+    }
+    const designerUser = (await findUserByUsername(env.db, sampleDesigner))!;
+    await ok(null, ["/", "/projects", "/projects?sort=views", "/projects?sort=shortlisted&page=2", "/designers"]);
+    await ok(designerUser, ["/designer/dashboard", "/designer/users", "/designer/users?role=CUSTOMER", `/designers/${designerUser.id}?month=2026-11`]);
+    await ok(admin, ["/admin/users", "/issues/manage"]);
+    await ok(platform, ["/platform/reports", "/platform/reports?period=MONTHLY", "/platform/categories", "/platform/ratings"]);
   });
 
   it("Unknown pages show the 404 page and forms from other sites are refused", async () => {

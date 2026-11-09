@@ -1,0 +1,33 @@
+name: Add sample data
+
+# Run by hand from the Actions tab (or `gh workflow run sample-data.yml`). It adds the extra sample data once;
+# running it again changes nothing.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: sample-data
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Add sample designers, customers, projects and activity to Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Add the sample data (one transaction)
+        run: npx tsx scripts/seed-sample.ts

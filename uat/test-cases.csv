@@ -1,0 +1,248 @@
+"ID","Module","Requirements","Title","Account","Needs","Steps","Expected result"
+"A-01","Accounts and sign-in","Spec 1","Register a Customer account","Visitor (logged out)","","1. Open the website and click Join Prestige (top right).
+2. Under “I am a…”, choose Customer.
+3. Enter Full name UAT2 Customer, Username uat2.customer, an email address, and a password of at least 8 characters in both password boxes.
+4. Click Create account.
+5. Log in with uat2.customer and the new password.","- After creating the account you are on Log in with “Welcome to Prestige! Your account is ready - please log in.”
+- After logging in you land on Find inspiration (the project search) and the top-right menu shows UAT2 Customer · Customer."
+"A-02","Accounts and sign-in","Spec 1","Register an Interior Designer account","Visitor (logged out)","","1. Log out, then click Join Prestige.
+2. Choose Interior Designer.
+3. Enter Full name UAT2 Designer, Username uat2.designer, an email address and a password (twice).
+4. Click Create account, then log in as uat2.designer.","- You land on Interest in your projects (the designer dashboard).
+- A note asks you to add your company information.
+- The workspace bar shows Dashboard, Portfolio, Company, Availability and User directory."
+"A-03","Accounts and sign-in","Spec 1","Registration rejects invalid details","Visitor (logged out)","","1. Open Join Prestige and fill in every field.
+2. Type two different passwords and click Create account.
+3. Try again with the password short in both boxes.
+4. Try again with the username emily, which a demo customer already uses.","- Mismatched passwords show “Passwords do not match”.
+- The short password shows “Password must be at least 8 characters”.
+- The taken username shows “The username 'emily' is already taken.”
+- No new account is created in any of these cases."
+"A-04","Accounts and sign-in","Spec 1","Log in and log out","emily","","1. Open Log in and enter emily with a wrong password.
+2. Log in as emily with the correct demo password.
+3. Open the name menu (top right) and click Log out.
+4. Type /profile after the website address and press Enter.","- The wrong password shows “Incorrect username or password.”
+- The correct password opens Find inspiration.
+- After logging out, the home page shows “You have been logged out. See you soon!”
+- /profile sends you back to Log in."
+"A-05","Accounts and sign-in","Spec 1","Each account type only reaches its own workspace","emily","","1. Log in as emily.
+2. Open /admin/users, then /platform/reports, then /designer/dashboard.
+3. Log out and open /admin/users again.","- Each of the three pages shows “You don't have access to this page” (403).
+- When logged out, /admin/users sends you to Log in."
+"A-06","Accounts and sign-in","Spec 1","Edit your own profile","uat2.customer","A-01","1. Open the name menu → My profile.
+2. Change Full name to UAT2 Customer Two, add a phone number and an About me text.
+3. Click Save profile, then reload the page.","- “Your profile has been updated.” appears.
+- The top-right menu shows the new name straight away.
+- The new values are still there after reloading."
+"A-07","Accounts and sign-in","Spec 1","Change your password","uat2.customer","A-01","1. My profile → Change password.
+2. Enter a wrong current password and a new password twice, then click Update password.
+3. Repeat with the correct current password.
+4. Log out, try the old password, then log in with the new one.","- The wrong current password shows “Your current password is incorrect.”
+- The correct one shows “Your password has been changed.”
+- The old password no longer works; the new one does."
+"A-08","Accounts and sign-in","Other requirement 1","Passwords are stored as salted SHA-256 hashes","Supabase dashboard","","1. Open your Supabase project → Table Editor → user_accounts.
+2. Look at the password_hash column for emily and daniel.","- Every value has the form sha256$, then 32 hex characters, $, then 64 hex characters.
+- No plain-text password appears anywhere.
+- Emily and Daniel have the same demo password, yet their hashes differ because each has its own random salt."
+"B-01","Interior Designer workspace","Spec 2","Create company information","uat2.designer","A-02","1. Click Company in the workspace bar.
+2. Fill in Company name UAT2 Interiors Pte Ltd, a registration number, About the company, Specialties, Years in business, Address, Phone, Business email and Website https://example.com.
+3. Click Create company profile, then View public page.","- “Company information saved.” appears and the button now reads Save changes.
+- The public designer page uses the company name as its heading and lists the details under Company information."
+"B-02","Interior Designer workspace","Spec 2","Company form validation","uat2.designer","B-01","1. On Company, set Website to ftp://example.com and click Save changes.
+2. Clear Company name and click Save changes again.","- The website shows “Website must start with http:// or https://”.
+- The empty name is refused (the browser asks you to fill it in, or “Company name is required” appears).
+- After reloading, the saved details are unchanged."
+"B-03","Interior Designer workspace","Spec 2","Update company information","sophia","","1. Log in as sophia → Company.
+2. Change Specialties to Japandi, Scandinavian, UAT2 test.
+3. Click Save changes, then open any of Sophia's projects.","- “Company information saved.”
+- The project's Designed by panel and Sophia's designer page show the new specialties."
+"B-04","Interior Designer workspace","Spec 3","Add a current project","uat2.designer","A-02","1. Portfolio → + Add a project.
+2. Title UAT2 Loft Kitchen, Category Kitchen, Current project, Style Industrial, Location Clementi, Budget 30000, and a start date.
+3. Click Add project.
+4. Open Projects and search clementi.","- “'UAT2 Loft Kitchen' was added to your portfolio.”
+- It is listed in Portfolio with status Current.
+- The search finds it with a “Current project” badge. Round v1's UAT Loft Kitchen may be listed too.
+- Its page shows a budget of $30,000 and a Timeline of the start date you entered followed by “ongoing”, for example “10 Nov 2026 – ongoing”."
+"B-05","Interior Designer workspace","Spec 3","Add a past project","uat2.designer","A-02","1. + Add a project: Title UAT2 Heritage Shophouse, Category Whole Home, Past project, Start date 2 October 2026 and End date 15 October 2026.
+2. Click Add project and open the project.
+3. Open Projects, search scandinavian and open Scandinavian Calm - 4-Room HDB Living Room.","- Its card shows a “Past project” badge.
+- Timeline on the project page shows the exact dates you entered: “2 Oct 2026 – 15 Oct 2026”, not just the months.
+- The demo project's Timeline shows full dates too: “22 Jun 2026 – 11 Aug 2026”."
+"B-06","Interior Designer workspace","Spec 3","Project form validation","uat2.designer","A-02","1. + Add a project: enter a title and leave Category on “Choose…”.
+2. Set an end date earlier than the start date.
+3. Click Add project.","- “Choose a category” and “The end date cannot be before the start date” appear.
+- No project is added to Portfolio."
+"B-07","Interior Designer workspace","Spec 3","Edit a project","uat2.designer","B-04","1. Portfolio → Edit on UAT2 Loft Kitchen.
+2. Change it to Past project and add an end date.
+3. Click Save changes.","- “Project updated.”
+- Portfolio and the project page now show it as Past.
+- The Timeline shows the start date and the new end date in full, for example “10 Nov 2026 – 20 Nov 2026”."
+"B-08","Interior Designer workspace","Spec 3","Delete a project","uat2.designer","A-02","1. Add a project called UAT2 Delete Me.
+2. In Portfolio click Delete on it and confirm with OK.","- “Project deleted.”
+- It no longer appears in Portfolio or in a search for uat2 delete."
+"B-09","Interior Designer workspace","Story 2","Add availability slots","uat2.designer","A-02","1. Availability → pick a date next week, From 10:00, To 12:00 → Add slot.
+2. Add a second slot on the same day from 14:00 to 16:00.","- “Availability added.” each time.
+- The calendar shows that month with both slots in green on that day.
+- Both appear under Upcoming slots as Available."
+"B-10","Interior Designer workspace","Story 2","Availability validation","uat2.designer","B-09","1. Try a slot from 15:00 to 14:00.
+2. Try 11:00 to 13:00 on the same day as B-09.
+3. Try a date in the past.","- “The end time must be after the start time”.
+- “This overlaps an existing slot (10:00 - 12:00).”
+- The past date is refused (the date picker blocks it, or “You cannot add availability in the past” appears)."
+"B-11","Interior Designer workspace","Story 2","Book, free and remove a slot","uat2.designer","B-09","1. Under Upcoming slots click Mark booked on the 10:00 slot.
+2. Click Mark available on the same slot.
+3. Click Remove on the 14:00 slot.","- “Slot updated.” While booked, the slot is grey and struck through on the calendar.
+- Mark available turns it green again.
+- “Slot removed.” and the 14:00 slot disappears."
+"B-12","Interior Designer workspace","Spec 5","Count views of a project","sophia, plus a private window","","1. As sophia, note the Views number for Japandi Kitchen and Dining Revamp on Dashboard.
+2. Open a new private (incognito) window, open that project without logging in, and refresh it three times.
+3. Close the private window and reload Sophia's dashboard.
+4. As Sophia, open her own project, then reload the dashboard again.","- Views went up by exactly 1: refreshing in the same browser session does not count again.
+- Sophia viewing her own project does not change the number.
+- Views (30 days) went up by 1 as well."
+"B-13","Interior Designer workspace","Spec 5; Story 7","Count how often a project is shortlisted","sophia, plus daniel in a private window","","1. As sophia, note Times shortlisted and In favourites now for Japandi Kitchen and Dining Revamp.
+2. In a private window log in as daniel, open that project and click Save to favourites.
+3. Reload Sophia's dashboard.
+4. As Daniel click Saved - remove, then reload Sophia's dashboard again.","- After saving, both numbers go up by 1.
+- After removing, Times shortlisted stays the same and In favourites now goes back down by 1."
+"B-14","Interior Designer workspace","Story 8","Search users by name","sophia","","1. User directory → type emi → Search, and look at Emily Chen's Email and Phone columns.
+2. Search TAN.
+3. Search zzzz.","- emi finds Emily Chen. Her row shows her email address, emily@example.com, and “Not given” for phone.
+- TAN finds Sophia Tan (and the sample accounts named Tan): upper and lower case don't matter. Sophia's Email and Phone show “-”, because only customers' contact details are listed.
+- zzzz shows “No users match your search.”"
+"B-15","Interior Designer workspace","Story 9","Filter users by role","sophia","","1. User directory → Role Customer → Search.
+2. Change Role to Interior Designer → Search.
+3. Type e in Name, set Role to Customer → Search, then click Reset.","- Only Customer badges are listed, then only Interior Designer badges.
+- The combined search lists only customers whose name or username contains “e”.
+- Reset lists everyone again."
+"C-01","Customer experience","Story 1; Spec 4","Search projects by keyword","Visitor or any customer","","1. Open Projects.
+2. Search japandi, then JAPANDI kitchen.
+3. Search punggol, then sophia.
+4. Search xyzzy.","- Both japandi searches find Japandi Kitchen and Dining Revamp: case doesn't matter and every word must match.
+- punggol finds the Minimalist Whole-Home Makeover; sophia finds Sophia Tan's projects.
+- xyzzy shows “No projects match your search” with a Clear search button."
+"C-02","Customer experience","Spec 4","Filter and sort projects","Visitor or any customer","","1. Choose Category Kitchen → Search.
+2. Reset Category and choose Project type Past projects.
+3. Change Sort by to Most viewed, then Title A-Z.","- Each filter shows only matching projects and the “… project(s) found” line updates.
+- Most viewed puts the highest view counts first; Title A-Z is alphabetical."
+"C-03","Customer experience","Spec 4","View a project's details","Visitor or any customer","","1. Open Scandinavian Calm - 4-Room HDB Living Room.","- The facts show Style Scandinavian, Location Tampines, Budget $28,000, the timeline, Views and Shortlisted.
+- Ratings & reviews lists reviews from Emily Chen and Daniel Ng.
+- Designed by shows Atelier Tan Interiors with a View availability calendar button."
+"C-04","Customer experience","Story 4; Spec 4","Save a project to favourites","uat2.customer","A-01","1. Log in as uat2.customer and open Boutique Cafe Interior.
+2. Click ♡ Save to favourites.
+3. Open My favourites, then go back to Projects.","- “Saved to your favourites.” and the button changes to “♥ Saved - remove”.
+- My favourites lists the project with “Saved” and today's date.
+- Its card in the search results carries a “♥ Saved” tag."
+"C-05","Customer experience","Story 4","Remove a favourite","uat2.customer","C-04","1. My favourites → Remove on Boutique Cafe Interior.","- “Removed from your favourites.”
+- If it was the only one, the page shows “No favourites yet”."
+"C-06","Customer experience","Story 2","See a designer's availability calendar","Visitor or any customer","","1. Open Designers → Atelier Tan Interiors.
+2. Look at Availability, then click Next ›.
+3. Open Lee & Lumen Design Studio (Marcus Lee) the same way.","- A Monday-to-Sunday month grid, with today outlined.
+- Sophia has green slots on Mondays, Wednesdays and Fridays (10:00-12:00 and 14:00-17:00), some greyed out as Booked.
+- Next shows the following month. Marcus has slots on Tuesdays, Thursdays and Saturdays (09:30-12:30)."
+"C-07","Customer experience","Story 5","Rate and review a project","uat2.customer","A-01","1. Open Japandi Kitchen and Dining Revamp.
+2. Choose 4 stars, write a short review and click Submit rating.
+3. Choose 5 stars and submit again.","- “Thank you - your rating has been saved.” and your review appears under Ratings & reviews.
+- The heading changes to “Update your rating”.
+- The second submit replaces your first review (you still have one review) and the average updates."
+"C-08","Customer experience","Story 3","Report a website issue","uat2.customer","A-01","1. Open the name menu → Report an issue.
+2. Choose Bug, enter Subject UAT2 test report, describe the problem and click Send report.","- “Thank you - your report was sent. Its status is now Pending.”
+- My reports lists it with a Pending badge, its type and today's date."
+"C-09","Customer experience","Story 3","Issue form validation","uat2.customer","A-01","1. On Report an issue, type a subject but leave “What happened?” empty.
+2. Click Send report.","- “Please describe the issue” appears.
+- No new report is added to My reports."
+"C-10","Customer experience","Spec 4","Visitors and designers can't save or rate","Visitor, then sophia","","1. While logged out, open any project.
+2. Log in as sophia and open one of Marcus's projects.","- The visitor sees “Like this project?” with Join Prestige, and “Log in as a customer to rate this project.”
+- Sophia sees no Save or Rate controls."
+"D-01","User Admin","Spec 1; Story 8; Story 9","Search and filter accounts","admin","A-02","1. Log in as admin; you land on User accounts.
+2. Type emi → Filter.
+3. Clear the name, set Role Interior Designer → Filter.
+4. Set Status Disabled → Filter, then click Reset.","- emi shows Emily Chen.
+- The role filter shows only Interior Designers: sophia, marcus, uat.designer, uat2.designer and the 30 sample designers.
+- Disabled shows only disabled accounts, or “No accounts match.”; Reset lists everyone."
+"D-02","User Admin","Spec 1","Create an account of any type","admin","","1. + New account: Username uat2.platform, Role Platform Management, a full name, email and password.
+2. Click Create account.
+3. In a private window, log in as uat2.platform.","- “Account 'uat2.platform' created.” and it is listed with the Platform Management role.
+- uat2.platform lands on the Daily report."
+"D-03","User Admin","Spec 1","View and update an account","admin","A-01","1. Click View / edit on uat2.customer.
+2. Change the phone number and click Save changes.
+3. Reload the page.","- “Account updated.”
+- The new phone number is still there, and the panel on the right shows the account status, last login and bio."
+"D-04","User Admin","Spec 1","Manage the user profiles","admin","","1. Open User profiles.
+2. Edit the Customer description and click Save profile.
+3. Look at the User Admin card.","- Four profiles are listed (User Admin, Interior Designer, Customer, Platform Management) with their account counts.
+- “Profile 'Customer' saved.”
+- The User Admin card says “The User Admin profile is always active.” and has no on/off box."
+"D-05","User Admin","Spec 1","Suspend a whole profile","admin, plus emily in a private window","","1. On the Customer card untick Profile is active → Save profile.
+2. In a private window try to log in as emily.
+3. Tick Profile is active again → Save profile.
+4. Log in as emily again.","- While suspended, Emily sees “This account is disabled. Please contact a User Admin.”
+- After re-activating, Emily logs in normally.
+- Leave the Customer profile active when you finish."
+"D-06","User Admin","Story 10","Disable a user without deleting their data","admin, plus a private window","C-07, C-08","1. User accounts → Disable on uat2.customer → OK.
+2. In a private window try to log in as uat2.customer.
+3. As a visitor, open Japandi Kitchen and Dining Revamp.
+4. As admin, click Enable on uat2.customer, then log in as uat2.customer.","- “'uat2.customer' has been disabled. Their data is kept.” and the status shows Disabled.
+- Login is refused with “This account is disabled. Please contact a User Admin.”
+- Their review is still on the project and their report is still under Reported issues.
+- “'uat2.customer' has been re-enabled.” and login works again."
+"D-07","User Admin","Story 10","Disabling signs the user out immediately","admin, plus uat2.customer in a private window","A-01","1. In a private window log in as uat2.customer and leave it open.
+2. As admin, disable uat2.customer.
+3. In the private window click My favourites.
+4. As admin, enable uat2.customer again.","- The private window is sent to Log in with “Please log in to continue. (Your session ended or your account was changed.)”"
+"D-08","User Admin","Story 10","You can't disable your own account","admin","","1. In User accounts find the Aaron Lim row.
+2. Click View / edit on it.","- There is no Disable button on your own row.
+- The account page says “This is your own account.”"
+"D-09","User Admin","Story 11","View reports flagged by users","admin","C-08","1. Open Reported issues.
+2. Check the counters, then click the Pending tab.","- Each report shows the reporter's name and role, the type, date and description, including “UAT2 test report”.
+- The All, Pending, Reviewed and Rectified counters match the lists.
+- The Pending tab shows only Pending reports."
+"D-10","User Admin","Story 12","Mark a report Reviewed, then Rectified","admin, then uat2.customer","C-08","1. On “UAT2 test report” choose Reviewed, type We are checking this and click Save.
+2. Click ✓ Mark as rectified.
+3. Log in as uat2.customer → My reported issues.","- “Report #… is now Reviewed.” then “Report #… is now Rectified.”; the badge shows the status and “by Aaron Lim”.
+- The reporter sees Rectified, the message, and “Rectified” with today's date."
+"E-01","Platform Management","Spec 6","Daily, weekly and monthly reports","platform","Modules B and C","1. Log in as platform; you land on the Daily report.
+2. Read today's tiles and the History table.
+3. Click Weekly, then Monthly.","- Today's tiles count today's UAT activity: views, shortlists, new users, new projects, issues and ratings.
+- History lists 7 days (Daily), 8 weeks starting on Mondays (Weekly) and 12 months (Monthly), newest first.
+- Most viewed, Most shortlisted, Top rated, Projects by category and Reported issues are filled in."
+"E-02","Platform Management","Spec 6","Download a report as CSV","platform","","1. On the Monthly report click Download CSV.
+2. Open the file in Excel or Google Sheets.","- The file is named prestige-monthly-report-<today's date>.csv.
+- It has the columns Period, Start, End (exclusive), New users, New projects, Project views, Shortlists, Issues reported and Ratings, with 12 rows."
+"E-03","Platform Management","Spec 6","Create a category","platform, then uat2.designer","","1. Categories → New category Balcony & Outdoor → Create category.
+2. As uat2.designer, open + Add a project and look at the Category list; also check the Category filter on Projects.","- “Category 'Balcony & Outdoor' created.” and it is listed as Active with 0 projects.
+- It appears in the designer's Category list and in the search filter."
+"E-04","Platform Management","Spec 6","Rename and deactivate a category","platform","E-03","1. Rename it to Balcony & Garden → Save.
+2. Click Deactivate, then check the designer's Category list and the search filter.
+3. Click Activate.","- “Category updated.”
+- “'Balcony & Garden' is now inactive.” and it disappears from the project form and the search filter.
+- After Activate it is back (“… is now active.”)."
+"E-05","Platform Management","Spec 6","Category delete rules","platform","E-03","1. Click Delete on Kitchen → OK.
+2. Click Delete on Balcony & Garden → OK.","- Kitchen is kept: “'Kitchen' is used by … project(s). Deactivate it instead of deleting it.”
+- Balcony & Garden is removed: “Category deleted.”"
+"E-06","Platform Management","Story 6","Ban a malicious user","platform, plus a private window","B-01, B-04","1. Users & bans → find uat2.designer, enter Reason Spam bot test → Ban.
+2. In a private window try to log in as uat2.designer.
+3. As a visitor, search Projects for UAT2 Loft and open Designers.","- “'uat2.designer' has been banned and signed out.” and the row shows Banned with the reason.
+- Login is refused: “This account has been banned by Platform Management.”
+- UAT2 Interiors and its projects are gone from search and the designer list; their pages show “We couldn't find that page”."
+"E-07","Platform Management","Story 6","Ban safeguards","platform","","1. Look at the rows for admin and platform.
+2. On a customer row click Ban without typing a reason.","- Staff rows say “Staff accounts cannot be banned”.
+- The browser asks you to fill in the reason, and nobody is banned."
+"E-08","Platform Management","Story 6","Lift a ban","platform","E-06","1. Click Lift ban on uat2.designer.
+2. Log in as uat2.designer, then search for UAT2 Loft as a visitor.","- “The ban on 'uat2.designer' has been lifted.”
+- Login works and the projects are visible again."
+"E-09","Platform Management","Story 5","Moderate ratings","platform","C-07","1. Open Ratings and note the average.
+2. Click Hide on uat2.customer's rating, then open that project.
+3. Back on Ratings click Show, then Delete → OK.","- The page shows the average rating, visible ratings, all ratings and Top rated projects.
+- “Rating hidden. It no longer counts towards averages.”; the rating is marked Hidden and no longer appears on the project page.
+- Show brings it back (“Rating is visible again.”); Delete removes it (“Rating deleted.”)."
+"E-10","Platform Management","Story 11; Story 12","Platform Management handles reports too","platform","C-08","1. Open Reported issues.
+2. Change the status of one report.","- You see the same list as the User Admin.
+- The status changes and shows “by Priya Nair”."
+"F-01","General checks","General","Works on a phone","Any account","","1. Open the website on a phone, or make the browser window narrow.
+2. Visit the home page, Projects, a project, a designer calendar and a form.","- Nothing scrolls sideways.
+- The menu and forms stack into one column and the calendar stays readable."
+"F-02","General checks","General","Pages that don't exist","Visitor","","1. Open /this-page-does-not-exist.
+2. Open /projects/999999.","- Both show the 404 page “We couldn't find that page” with links to the home page and Projects."
+"F-03","General checks","General","Automated test script","Project folder or GitHub","","1. In the project folder run npm test, or open the latest run under GitHub → Actions.","- Twenty lines end in “Good”.
+- The last line reads “OVERALL: 20/20 features Good | 92/92 test cases passed”."

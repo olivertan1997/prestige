@@ -8,6 +8,8 @@
     "test": "node scripts/run-tests.mjs",
     "typecheck": "tsc --noEmit",
     "migrate": "tsx scripts/migrate.ts",
+    "uat:plan": "node scripts/uat.mjs plan",
+    "uat:save": "node scripts/uat.mjs save",
     "deploy": "wrangler deploy",
     "logs": "wrangler tail"
   },
