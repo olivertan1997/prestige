@@ -1,7 +1,7 @@
-// Story 3 - report issues and follow their status.
+// Story 3 (report issues), story 11 (view flagged reports), story 12 (mark as Rectified).
 import { one, type Db } from "../db";
 import { BusinessError, NotFoundError, clean } from "../lib/errors";
-import { ISSUE_TYPES, isOneOf, type Issue } from "../types";
+import { ISSUE_STATUSES, ISSUE_TYPES, isOneOf, type Issue, type IssueStatus } from "../types";
 import { requireUser } from "./users";
 
 const ISSUE_SELECT = `
@@ -48,4 +48,34 @@ export function getIssue(db: Db, id: number): Promise<Issue | null> {
 
 export function myIssues(db: Db, reporterId: number): Promise<Issue[]> {
   return db.query<Issue>(`${ISSUE_SELECT} where i.reporter_id = $1::int order by i.created_at desc, i.id desc`, [reporterId]);
+}
+
+export function listIssues(db: Db, status?: string | null): Promise<Issue[]> {
+  if (isOneOf(ISSUE_STATUSES, status)) {
+    return db.query<Issue>(`${ISSUE_SELECT} where i.status = $1 order by i.created_at desc, i.id desc`, [status]);
+  }
+  return db.query<Issue>(`${ISSUE_SELECT} order by i.created_at desc, i.id desc`);
+}
+
+export async function updateIssueStatus(db: Db, handlerId: number, issueId: number, status: string, note?: string | null): Promise<Issue> {
+  if (!isOneOf(ISSUE_STATUSES, status)) throw new BusinessError("Choose a status.");
+  const handler = await requireUser(db, handlerId);
+  if (handler.role !== "USER_ADMIN" && handler.role !== "PLATFORM_MANAGEMENT") {
+    throw new BusinessError("Only User Admins and Platform Management can update reports.");
+  }
+  if (!(await getIssue(db, issueId))) throw new NotFoundError("Issue not found");
+  await db.query(
+    `update issue_reports set status = $2, handled_by_id = $3::int, resolution_note = coalesce($4, resolution_note),
+       resolved_at = case when $2 = 'RECTIFIED' then now() else null end, updated_at = now()
+     where id = $1::int`,
+    [issueId, status, handlerId, clean(note)],
+  );
+  return (await getIssue(db, issueId))!;
+}
+
+export async function issueCounts(db: Db): Promise<Record<IssueStatus, number>> {
+  const rows = await db.query<{ status: IssueStatus; count: number }>(`select status, count(*)::int as count from issue_reports group by status`);
+  const counts = Object.fromEntries(ISSUE_STATUSES.map((s) => [s, 0])) as Record<IssueStatus, number>;
+  for (const row of rows) counts[row.status] = row.count;
+  return counts;
 }

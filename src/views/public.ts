@@ -1,4 +1,5 @@
 import { html } from "hono/html";
+import { fmtDate } from "../lib/dates";
 import type { CalendarMonth } from "../services/availability";
 import type { DesignerCard } from "../services/directory";
 import type { ProjectPage } from "../services/projects";
@@ -17,6 +18,8 @@ import {
   filterSelect,
   globalError,
   input,
+  money,
+  placeholderClass,
   projectGrid,
   type FormState,
 } from "./components";
@@ -153,6 +156,58 @@ export function searchPage(ctx: PageCtx, result: ProjectPage, view: SearchView, 
         ${result.page + 1 < result.totalPages ? html`<a href="${qs(result.page + 1)}">Next &rsaquo;</a>` : html`<span class="disabled">Next &rsaquo;</span>`}
       </nav>`
     : ""}`);
+}
+
+export interface ProjectDetailView {
+  project: Project;
+  company: Company | null;
+  currentFavourites: number;
+  isFavourite: boolean;
+}
+
+export function projectPage(ctx: PageCtx, v: ProjectDetailView): H {
+  const p = v.project;
+  const isCustomer = ctx.user?.role === "CUSTOMER";
+  return page(ctx, `${p.title} · ${TITLE}`, html`
+  <p class="small"><a href="/projects">&larr; All projects</a></p>
+  ${p.designerStatus !== "ACTIVE" ? html`<div class="alert alert-error">This designer's account is ${p.designerStatus.toLowerCase()}, so this project is hidden from the public.</div>` : ""}
+  <div class="split">
+    <article>
+      <div class="detail-hero ${placeholderClass(p)}">
+        ${p.imageUrl ? html`<img src="${p.imageUrl}" alt="${p.title}">` : html`<span class="ph-letter">${p.title.slice(0, 1)}</span>`}
+      </div>
+      <div style="margin-top:22px">
+        <p class="eyebrow">${p.categoryName ?? "Uncategorised"} &middot; ${PROJECT_STATUS_LABELS[p.status]} project</p>
+        <h1>${p.title}</h1>
+      </div>
+      <div class="facts">
+        <div><span>Style</span><strong>${p.style ?? "-"}</strong></div>
+        <div><span>Location</span><strong>${p.location ?? "-"}</strong></div>
+        <div><span>Budget</span><strong>${money(p.budget)}</strong></div>
+        <div><span>Timeline</span><strong>${p.startDate ? fmtDate(p.startDate) : "Start not set"} &ndash; ${p.endDate ? fmtDate(p.endDate) : "ongoing"}</strong></div>
+      </div>
+      <h3>About this project</h3>
+      <p class="prose">${p.description ?? "No description provided."}</p>
+    </article>
+
+    <aside class="stack sticky">
+      ${isCustomer
+        ? html`<div class="panel"><h3>Save for later</h3><p class="muted small">Add this project to your favourites list to compare ideas later.</p>
+            ${v.isFavourite
+              ? html`<form action="/customer/favourites/${p.id}/remove" method="post"><button class="btn btn-ghost btn-block" type="submit">&#9829; Saved - remove</button></form>`
+              : html`<form action="/customer/favourites/${p.id}" method="post"><button class="btn btn-gold btn-block" type="submit">&#9825; Save to favourites</button></form>`}
+          </div>`
+        : ctx.user ? "" : html`<div class="panel"><h3>Like this project?</h3><p class="muted small">Create a free customer account to save it to your favourites.</p><a class="btn btn-gold btn-block" href="/register">Join Prestige</a></div>`}
+      <div class="panel">
+        <p class="eyebrow">Designed by</p>
+        <h3>${v.company?.name ?? p.designerName}</h3>
+        ${v.company ? html`<p class="muted small">Lead designer: ${p.designerName}</p>` : ""}
+        ${v.company?.specialties ? html`<p class="small">${v.company.specialties}</p>` : ""}
+        <a class="btn btn-dark btn-block" href="/designers/${p.designerId}#calendar">View availability calendar</a>
+      </div>
+      <div class="panel small"><strong>${v.currentFavourites}</strong> customer(s) currently have this project in their favourites.</div>
+    </aside>
+  </div>`);
 }
 
 export function designersPage(ctx: PageCtx, designers: DesignerCard[], q: string): H {

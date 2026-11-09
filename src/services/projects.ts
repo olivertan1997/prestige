@@ -1,4 +1,4 @@
-// Spec 3 (portfolio), story 1 (keyword search) and story 4 (favourites).
+// Spec 3 (portfolio), spec 4 + story 1 (search / view / save) and story 4 (favourites).
 import { one, type Db } from "../db";
 import { isValidDate } from "../lib/dates";
 import { BusinessError, NotFoundError, clean, escapeLike } from "../lib/errors";
@@ -7,6 +7,7 @@ import {
   isOneOf,
   type Project,
   type ProjectStatus,
+  type SessionUser,
 } from "../types";
 import { requireUser } from "./users";
 
@@ -93,6 +94,18 @@ export function featuredProjects(db: Db): Promise<Project[]> {
 
 export function getProject(db: Db, id: number): Promise<Project | null> {
   return one<Project>(db, `${PROJECT_SELECT} where p.id = $1::int`, [id]);
+}
+
+/** Projects of banned or disabled designers are hidden, except from their owner and staff. */
+export async function getProjectForViewer(db: Db, id: number, viewer: SessionUser | null): Promise<Project> {
+  const project = await getProject(db, id);
+  if (!project) throw new NotFoundError("Project not found");
+  if (project.designerStatus !== "ACTIVE") {
+    const owner = viewer?.id === project.designerId;
+    const staff = viewer?.role === "USER_ADMIN" || viewer?.role === "PLATFORM_MANAGEMENT";
+    if (!owner && !staff) throw new NotFoundError("Project not found");
+  }
+  return project;
 }
 
 // ------------------------------------------------------------- portfolio

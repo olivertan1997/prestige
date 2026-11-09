@@ -1,6 +1,7 @@
 import { html } from "hono/html";
 import { fmtDate, fmtDateTime } from "../lib/dates";
 import {
+  ISSUE_STATUSES,
   ISSUE_STATUS_LABELS,
   ISSUE_TYPES,
   ISSUE_TYPE_LABELS,
@@ -99,4 +100,45 @@ export function myIssuesPage(ctx: PageCtx, issues: Issue[], form: FormState): H 
       <p class="muted small" style="margin-top:14px">Status flow: ${statusBadge("PENDING")} &rarr; ${statusBadge("REVIEWED")} &rarr; ${statusBadge("RECTIFIED")}</p>
     </form>
   </div>`);
+}
+
+export function manageIssuesPage(ctx: PageCtx, issues: Issue[], status: string, counts: Record<IssueStatus, number>): H {
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  return page(ctx, `Reported issues · ${TITLE}`, html`
+  <div class="page-head"><div><p class="eyebrow">Moderation</p><h1>Reported issues</h1>
+    <p class="muted">Reports flagged by users. Change the status so the reporter knows what is happening.</p></div></div>
+  <div class="grid grid-4" style="margin-bottom:22px">
+    <a class="stat" href="/issues/manage" style="color:inherit"><div class="label">All reports</div><div class="value">${total}</div></a>
+    ${ISSUE_STATUSES.map((s) => html`<a class="stat" href="/issues/manage?status=${s}" style="color:inherit"><div class="label">${ISSUE_STATUS_LABELS[s]}</div><div class="value">${counts[s]}</div></a>`)}
+  </div>
+  <div class="tabs" style="margin-bottom:16px">
+    <a href="/issues/manage" class="${status ? "" : "active"}">All</a>
+    ${ISSUE_STATUSES.map((s) => html`<a href="/issues/manage?status=${s}" class="${status === s ? "active" : ""}">${ISSUE_STATUS_LABELS[s]}</a>`)}
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Issue</th><th>Reported by</th><th>Status</th><th style="min-width:330px">Update</th></tr></thead>
+    <tbody>
+      ${issues.map((i) => html`<tr data-issue="${i.id}" data-status="${i.status}">
+        <td>${i.id}</td>
+        <td style="max-width:380px"><strong>${i.subject}</strong>
+          <span class="sub">${ISSUE_TYPE_LABELS[i.type]} &middot; ${fmtDateTime(i.createdAt)}</span>
+          <span class="sub" style="color:var(--ink-soft);white-space:pre-line">${i.description}</span></td>
+        <td>${i.reporterName}<span class="sub">${ROLE_LABELS[i.reporterRole]}</span></td>
+        <td>${statusBadge(i.status)}${i.handledByName ? html`<span class="sub">by ${i.handledByName}</span>` : ""}</td>
+        <td>
+          <form action="/issues/manage/${i.id}/status" method="post" class="stack" style="gap:6px">
+            <div class="row" style="gap:6px">
+              <select name="status" style="width:auto;flex:1" aria-label="Status">${ISSUE_STATUSES.map((s) => html`<option value="${s}"${i.status === s ? html` selected` : ""}>${ISSUE_STATUS_LABELS[s]}</option>`)}</select>
+              <button class="btn btn-dark btn-sm" type="submit">Save</button>
+            </div>
+            <input type="text" name="note" maxlength="1000" value="${i.resolutionNote ?? ""}" placeholder="Message to the reporter (optional)" aria-label="Message">
+          </form>
+          ${i.status !== "RECTIFIED"
+            ? html`<form action="/issues/manage/${i.id}/status" method="post" style="margin-top:6px"><input type="hidden" name="status" value="RECTIFIED"><button class="btn btn-success btn-sm" type="submit">&#10003; Mark as rectified</button></form>`
+            : ""}
+        </td>
+      </tr>`)}
+      ${issues.length ? "" : html`<tr><td colspan="5" class="empty">No reports here.</td></tr>`}
+    </tbody>
+  </table></div>`);
 }

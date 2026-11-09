@@ -7,7 +7,7 @@ import { pageCtx, requireRole } from "./lib/context";
 import { BusinessError, NotFoundError } from "./lib/errors";
 import { backPath, setFlash, type Ctx } from "./lib/http";
 import { SESSION_COOKIE, loadSessionUser } from "./lib/sessions";
-import { accountRoutes, customerRoutes } from "./routes/account";
+import { accountRoutes, customerRoutes, issueManagementRoutes } from "./routes/account";
 import { adminRoutes } from "./routes/admin";
 import { designerRoutes } from "./routes/designer";
 import { publicRoutes } from "./routes/public";
@@ -84,6 +84,7 @@ export function createApp(deps: AppDeps) {
 
   app.route("/", publicRoutes);
   app.route("/", accountRoutes);
+  app.route("/issues/manage", issueManagementRoutes);
   app.route("/customer", customerRoutes);
   app.route("/designer", designerRoutes);
   app.route("/admin", adminRoutes);

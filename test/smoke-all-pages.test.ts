@@ -39,11 +39,11 @@ describe("Smoke Test 1: Demo data loads and every page of the website renders", 
 
   it("Public pages render for visitors", async () => {
     await ok(null, ["/", "/login", "/register", "/projects", "/projects?q=japandi&sort=views", "/projects?status=PAST&sort=title",
-      "/designers", "/designers?q=atelier", `/designers/${designer.id}`, `/designers/${designer.id}?month=${nextMonth}`, "/healthz"]);
+      "/designers", "/designers?q=atelier", `/designers/${designer.id}`, `/designers/${designer.id}?month=${nextMonth}`, `/projects/${projectId}`, "/healthz"]);
   });
 
   it("Customer pages render", async () => {
-    await ok(customer, ["/", "/projects", "/customer/favourites", "/issues", "/profile", "/designers"]);
+    await ok(customer, ["/", "/projects", `/projects/${projectId}`, "/customer/favourites", "/issues", "/profile", "/designers"]);
   });
 
   it("Interior Designer pages render", async () => {
@@ -53,7 +53,11 @@ describe("Smoke Test 1: Demo data loads and every page of the website renders", 
 
   it("User Admin pages render", async () => {
     await ok(admin, ["/admin/users", "/admin/users?role=CUSTOMER&status=ACTIVE&q=e", "/admin/users/new", `/admin/users/${customer.id}/edit`,
-      "/admin/profiles"]);
+      "/admin/profiles", "/issues/manage", "/issues/manage?status=PENDING"]);
+  });
+
+  it("Platform Management pages render", async () => {
+    await ok(platform, ["/issues/manage"]);
   });
 
   it("Unknown pages show the 404 page and forms from other sites are refused", async () => {

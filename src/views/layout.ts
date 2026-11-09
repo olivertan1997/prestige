@@ -29,8 +29,10 @@ const WORKSPACE_LINKS: Record<Role, [string, string][]> = {
   USER_ADMIN: [
     ["/admin/users", "User accounts"],
     ["/admin/profiles", "User profiles"],
+    ["/issues/manage", "Reported issues"],
   ],
   PLATFORM_MANAGEMENT: [
+    ["/issues/manage", "Reported issues"],
   ],
 };
 

@@ -10,15 +10,18 @@ import { buildCalendar } from "../services/availability";
 import { getCompany, listActiveCategories } from "../services/catalog";
 import { countActiveDesigners, getActiveDesigner, listDesigners } from "../services/directory";
 import {
+  currentFavouriteCount,
   favouriteIds,
   featuredProjects,
+  getProjectForViewer,
+  isFavourite,
   listDesignerProjects,
   searchProjects,
 } from "../services/projects";
 import { MIN_PASSWORD_LENGTH, authenticate, registerUser } from "../services/users";
 import { SELF_SERVICE_ROLES, isOneOf } from "../types";
 import type { FormState } from "../views/components";
-import { designerPage, designersPage, homePage, loginPage, registerPage, searchPage } from "../views/public";
+import { designerPage, designersPage, homePage, loginPage, projectPage, registerPage, searchPage } from "../views/public";
 
 export const publicRoutes = new Hono<AppEnv>();
 
@@ -67,7 +70,7 @@ publicRoutes.post("/logout", async (c) => {
 /** Sends each role to its own workspace. */
 publicRoutes.get("/dashboard", (c) => {
   const role = c.get("user")!.role;
-  const target = { USER_ADMIN: "/admin/users", PLATFORM_MANAGEMENT: "/", INTERIOR_DESIGNER: "/designer/dashboard", CUSTOMER: "/projects" }[role];
+  const target = { USER_ADMIN: "/admin/users", PLATFORM_MANAGEMENT: "/issues/manage", INTERIOR_DESIGNER: "/designer/dashboard", CUSTOMER: "/projects" }[role];
   return c.redirect(target);
 });
 
@@ -128,6 +131,21 @@ publicRoutes.get("/projects", async (c) => {
     user?.role === "CUSTOMER" ? favouriteIds(db, user.id) : Promise.resolve(new Set<number>()),
   ]);
   return c.html(searchPage(pageCtx(c), result, view, categories, favIds));
+});
+
+publicRoutes.get("/projects/:id", async (c) => {
+  const db = c.get("db");
+  const user = c.get("user");
+  const id = intParam(c.req.param("id"));
+  if (id === null) return c.notFound();
+  const project = await getProjectForViewer(db, id, user);
+  const isCustomer = user?.role === "CUSTOMER";
+  const [company, currentFavourites, fav] = await Promise.all([
+    getCompany(db, project.designerId),
+    currentFavouriteCount(db, id),
+    isCustomer ? isFavourite(db, user!.id, id) : Promise.resolve(false),
+  ]);
+  return c.html(projectPage(pageCtx(c), { project, company, currentFavourites, isFavourite: fav }));
 });
 
 // -------------------------------------------------------------------- designers

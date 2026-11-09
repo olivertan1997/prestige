@@ -3,11 +3,11 @@ import type { AppEnv } from "../env";
 import { pageCtx } from "../lib/context";
 import { BusinessError, clean } from "../lib/errors";
 import { backPath, intParam, readForm, setFlash, type Ctx } from "../lib/http";
-import { myIssues, reportIssue, validateIssue } from "../services/issues";
+import { issueCounts, listIssues, myIssues, reportIssue, updateIssueStatus, validateIssue } from "../services/issues";
 import { addFavourite, listFavourites, removeFavourite } from "../services/projects";
 import { MIN_PASSWORD_LENGTH, changePassword, requireUser, updateOwnProfile } from "../services/users";
-import type { User } from "../types";
-import { favouritesPage, myIssuesPage, profilePage } from "../views/account";
+import { ISSUE_STATUSES, ISSUE_STATUS_LABELS, isOneOf, type User } from "../types";
+import { favouritesPage, manageIssuesPage, myIssuesPage, profilePage } from "../views/account";
 import { emptyForm, type FormState } from "../views/components";
 
 // ------------------------------------------------------------- profile + issues (any logged-in user)
@@ -80,6 +80,26 @@ accountRoutes.post("/issues", async (c) => {
     return c.redirect("/issues");
   }
   return c.html(myIssuesPage(pageCtx(c), await myIssues(db, me.id), f), 422);
+});
+
+// ------------------------------------------------- issue management (User Admin + Platform Management)
+
+export const issueManagementRoutes = new Hono<AppEnv>();
+
+issueManagementRoutes.get("/", async (c) => {
+  const db = c.get("db");
+  const status = isOneOf(ISSUE_STATUSES, c.req.query("status")) ? c.req.query("status")! : "";
+  const [issues, counts] = await Promise.all([listIssues(db, status), issueCounts(db)]);
+  return c.html(manageIssuesPage(pageCtx(c), issues, status, counts));
+});
+
+issueManagementRoutes.post("/:id/status", async (c) => {
+  const id = intParam(c.req.param("id"));
+  if (id === null) return c.notFound();
+  const form = await readForm(c);
+  const issue = await updateIssueStatus(c.get("db"), c.get("user")!.id, id, form.status ?? "", form.note);
+  setFlash(c, "success", `Report #${id} is now ${ISSUE_STATUS_LABELS[issue.status]}.`);
+  return c.redirect(backPath(c, "/issues/manage"));
 });
 
 // ------------------------------------------------------------------- customer actions (story 4)

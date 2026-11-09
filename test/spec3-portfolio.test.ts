@@ -20,6 +20,18 @@ describe("Spec 3: Interior Designers manage a portfolio of current and past IDPs
     expect((await as.get("/designer/projects")).status).toBe(200);
   });
 
+  it("A project's timeline shows the exact start and end dates entered (UAT v1, B-05)", async () => {
+    const designer = await newUser(env, "INTERIOR_DESIGNER");
+    const category = await newCategory(env, "Whole Home");
+    const project = await createProject(env.db, designer.id, {
+      title: "Heritage Shophouse", categoryId: String(category.id), status: "PAST", startDate: "2026-11-01", endDate: "2026-11-07",
+    });
+    const html = await (await browser(env).get(`/projects/${project.id}`)).text();
+    expect(html).toContain("<strong>1 Nov 2026 &ndash; 7 Nov 2026</strong>");
+    const ongoing = await newProject(env, designer, "Ongoing job");
+    expect(await (await browser(env).get(`/projects/${ongoing.id}`)).text()).toContain("Start not set &ndash; ongoing");
+  });
+
   it("A designer can edit a project, e.g. move it from current to past", async () => {
     const designer = await newUser(env, "INTERIOR_DESIGNER");
     const project = await newProject(env, designer, "Before edit");
